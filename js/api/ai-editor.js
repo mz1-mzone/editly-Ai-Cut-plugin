@@ -137,6 +137,24 @@ var AIEditor = (function () {
 
     return processChunk(0).then(function () {
       // ========== STEP 4: MERGE — Claude decisions + auto-remove ==========
+
+      // Attach transcript text to auto-remove segments
+      autoRemoveSegments.forEach(function (seg) {
+        seg._text = '[' + seg.reason + ']';
+      });
+
+      // Attach transcript text to Claude segments by matching timestamps
+      allClaudeSegments.forEach(function (seg) {
+        var texts = [];
+        speechSegments.forEach(function (sp) {
+          // If this speech segment overlaps with the Claude segment
+          if (sp.end > seg.start && sp.start < seg.end) {
+            texts.push(sp.text);
+          }
+        });
+        seg._text = texts.join(' ') || '';
+      });
+
       var allSegments = allClaudeSegments.concat(autoRemoveSegments);
       allSegments.sort(function (a, b) { return a.start - b.start; });
 

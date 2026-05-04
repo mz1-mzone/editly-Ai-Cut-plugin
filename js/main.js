@@ -36,14 +36,19 @@
     btnCreateCut: document.getElementById('btnCreateCut'),
     progressSection: document.getElementById('progressSection'),
     progressSpinner: document.getElementById('progressSpinner'),
-    resultsSection: document.getElementById('resultsSection'),
+    // Transcript review
+    transcriptSection: document.getElementById('transcriptSection'),
+    transcriptBadge: document.getElementById('transcriptBadge'),
+    transcriptSearch: document.getElementById('transcriptSearch'),
+    transcriptList: document.getElementById('transcriptList'),
     storySummaryText: document.getElementById('storySummaryText'),
-    resultKept: document.getElementById('resultKept'),
-    resultRemoved: document.getElementById('resultRemoved'),
-    resultDuration: document.getElementById('resultDuration'),
-    resultSaved: document.getElementById('resultSaved'),
-    btnApprove: document.getElementById('btnApprove'),
+    statKept: document.getElementById('statKept'),
+    statRemoved: document.getElementById('statRemoved'),
+    statDuration: document.getElementById('statDuration'),
+    statSaved: document.getElementById('statSaved'),
+    btnApplyCuts: document.getElementById('btnApplyCuts'),
     btnUndo: document.getElementById('btnUndo'),
+    // Settings
     btnSettings: document.getElementById('btnSettings'),
     settingsOverlay: document.getElementById('settingsOverlay'),
     btnSettingsClose: document.getElementById('btnSettingsClose'),
@@ -55,6 +60,10 @@
     statusText: document.getElementById('statusText'),
     toastContainer: document.getElementById('toastContainer')
   };
+
+  // Current decisions state (user-editable)
+  var currentDecisions = null;
+  var currentSearchQuery = '';
 
   // ==================== SETTINGS ====================
 
@@ -317,7 +326,7 @@
       setStepState(i, 'pending', 'Waiting...');
     }
     els.progressSection.classList.remove('active');
-    els.resultsSection.classList.remove('active');
+    els.transcriptSection.classList.remove('active');
   }
 
   // ==================== MAIN PIPELINE ====================
@@ -437,60 +446,10 @@
           decisions.removed_segments_count + ' removed'
         );
 
-        // ---- STEP 4: Apply Cuts ----
-        setStepState(4, 'active', 'Applying razor cuts...');
-
-        var cutTimes = [];
-        var removeRanges = [];
-
-        decisions.segments.forEach(function (seg) {
-          cutTimes.push(seg.start);
-          cutTimes.push(seg.end);
-          if (seg.action === 'remove') {
-            removeRanges.push({ start: seg.start, end: seg.end });
-          }
-        });
-
-        // Deduplicate cut times
-        var uniqueCuts = [];
-        var seen = {};
-        cutTimes.forEach(function (t) {
-          var rounded = Math.round(t * 100) / 100;
-          if (!seen[rounded]) {
-            seen[rounded] = true;
-            uniqueCuts.push(rounded);
-          }
-        });
-
-        console.log('[Pipeline] Unique cut points:', uniqueCuts.length);
-        console.log('[Pipeline] Remove ranges:', removeRanges.length);
-
-        var cutsJson = JSON.stringify(uniqueCuts);
-        return evalScript('applyMultipleRazorCuts(\'' + cutsJson.replace(/'/g, "\\'") + '\')')
-          .then(function (cutResult) {
-            console.log('[Pipeline] Razor result:', JSON.stringify(cutResult));
-            setStepState(4, 'active', 'Waiting for cuts to settle (' + (cutResult.successCount || 0) + ' cuts)...');
-
-            // Give Premiere Pro time to process all the razor cuts
-            return new Promise(function (resolve) {
-              setTimeout(function () {
-                setStepState(4, 'active', 'Disabling removed segments...');
-                var rangesJson = JSON.stringify(removeRanges);
-                evalScript('disableClipRanges(\'' + rangesJson.replace(/'/g, "\\'") + '\')')
-                  .then(function (disableResult) {
-                    console.log('[Pipeline] Disable result:', JSON.stringify(disableResult));
-                    resolve(disableResult);
-                  });
-              }, 2000);
-            });
-          })
-          .then(function (disableResult) {
-            var disabledCount = disableResult ? (disableResult.disabledCount || 0) : 0;
-            setStepState(4, 'completed', 'Done! ' + disabledCount + ' clips disabled');
-            stateManager.setEditResults(decisions);
-            showResults(decisions);
-            AudioUtils.cleanupTempFiles([tempAudioPath]);
-          });
+        // ---- Show transcript for user review (Step 4 waits for user) ----
+        currentDecisions = decisions;
+        showTranscriptReview(decisions);
+        showToast('Review the transcript. Toggle segments, then click Apply.', 'success');
       })
       .catch(function (err) {
         console.error('[Pipeline] Error:', err);
@@ -511,32 +470,145 @@
       });
   }
 
-  // ==================== RESULTS DISPLAY ====================
+  // ==================== TRANSCRIPT REVIEW ====================
 
-  function showResults(decisions) {
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function showTranscriptReview(decisions) {
     els.storySummaryText.textContent = decisions.story_summary || 'Edit complete.';
-    els.resultKept.textContent = decisions.kept_segments_count || 0;
-    els.resultRemoved.textContent = decisions.removed_segments_count || 0;
-    els.resultDuration.textContent = formatTime(decisions.estimated_duration || 0);
-    els.resultSaved.textContent = formatTime(decisions.removed_duration || 0);
-
-    els.resultsSection.classList.add('active');
-    showToast('AI cut complete! Review and approve or undo.', 'success');
+    renderTranscript();
+    els.transcriptSection.classList.add('active');
   }
 
-  // ==================== APPROVE / UNDO ====================
+  function renderTranscript() {
+    if (!currentDecisions || !currentDecisions.segments) return;
 
-  function approveEdit() {
-    evalScript('approveChanges()')
-      .then(function (result) {
-        if (result.error) { showToast('Approve error: ' + result.error, 'error'); return; }
-        stateManager.clearState();
-        resetProgress();
-        showToast('Edit approved! ✓ ' + (result.message || ''), 'success');
-        refreshClipInfo();
+    var segments = currentDecisions.segments;
+    var query = currentSearchQuery.toLowerCase();
+    var html = '';
+    var keepCount = 0, removeCount = 0, keepDuration = 0, removeDuration = 0;
+
+    segments.forEach(function (seg, idx) {
+      var dur = seg.end - seg.start;
+      var isKeep = seg.action === 'keep';
+      if (isKeep) { keepCount++; keepDuration += dur; } else { removeCount++; removeDuration += dur; }
+
+      // Search filter
+      var segText = (seg.reason || '') + ' ' + (seg._text || '');
+      var matchesSearch = !query || segText.toLowerCase().indexOf(query) >= 0;
+
+      // Display text
+      var displayText = seg._text || seg.reason || '';
+      var highlightedText = escapeHtml(displayText);
+      if (query && displayText.toLowerCase().indexOf(query) >= 0) {
+        var regex = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        highlightedText = escapeHtml(displayText).replace(regex, '<mark>$1</mark>');
+      }
+
+      var cls = isKeep ? 'kept' : 'removed';
+      if (!matchesSearch) cls += ' hidden';
+
+      var btnClass = isKeep ? 'btn-remove' : 'btn-keep';
+      var btnLabel = isKeep ? 'Cut' : 'Keep';
+
+      html += '<div class="transcript-segment ' + cls + '" data-idx="' + idx + '">' +
+        '<div class="seg-body">' +
+          '<div class="seg-header">' +
+            '<span class="seg-time">' + seg.start.toFixed(1) + 's – ' + seg.end.toFixed(1) + 's</span>' +
+            '<span class="seg-type ' + seg.action + '">' + seg.action + '</span>' +
+            (seg.reason ? '<span class="seg-reason">' + escapeHtml(seg.reason) + '</span>' : '') +
+          '</div>' +
+          (displayText ? '<div class="seg-text">' + highlightedText + '</div>' : '') +
+        '</div>' +
+        '<div class="seg-action">' +
+          '<button class="btn-seg-toggle ' + btnClass + '" data-idx="' + idx + '">' + btnLabel + '</button>' +
+        '</div>' +
+      '</div>';
+    });
+
+    els.transcriptList.innerHTML = html;
+
+    // Update stats
+    els.statKept.textContent = keepCount;
+    els.statRemoved.textContent = removeCount;
+    els.statDuration.textContent = Math.round(keepDuration) + 's';
+    els.statSaved.textContent = Math.round(removeDuration) + 's';
+    els.transcriptBadge.textContent = removeCount + ' to cut';
+    els.transcriptBadge.className = 'card-badge ' + (removeCount > 0 ? 'error' : 'ready');
+
+    // Bind toggle buttons
+    els.transcriptList.querySelectorAll('.btn-seg-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var idx = parseInt(btn.getAttribute('data-idx'));
+        var seg = currentDecisions.segments[idx];
+        seg.action = seg.action === 'keep' ? 'remove' : 'keep';
+        renderTranscript();
+      });
+    });
+  }
+
+  // ==================== APPLY CUTS (from user's review) ====================
+
+  function applyCuts() {
+    if (!currentDecisions || isProcessing) return;
+    isProcessing = true;
+    els.btnApplyCuts.disabled = true;
+
+    els.progressSection.classList.add('active');
+    setStepState(4, 'active', 'Applying razor cuts...');
+
+    var cutTimes = [];
+    var removeRanges = [];
+
+    currentDecisions.segments.forEach(function (seg) {
+      cutTimes.push(seg.start);
+      cutTimes.push(seg.end);
+      if (seg.action === 'remove') {
+        removeRanges.push({ start: seg.start, end: seg.end });
+      }
+    });
+
+    var uniqueCuts = [];
+    var seen = {};
+    cutTimes.forEach(function (t) {
+      var rounded = Math.round(t * 100) / 100;
+      if (!seen[rounded]) { seen[rounded] = true; uniqueCuts.push(rounded); }
+    });
+
+    console.log('[Apply] ' + uniqueCuts.length + ' cut points, ' + removeRanges.length + ' remove ranges');
+
+    var cutsJson = JSON.stringify(uniqueCuts);
+    evalScript('applyMultipleRazorCuts(\'' + cutsJson.replace(/'/g, "\\'") + '\')')
+      .then(function (cutResult) {
+        setStepState(4, 'active', 'Waiting for cuts (' + (cutResult.successCount || 0) + ')...');
+        return new Promise(function (resolve) {
+          setTimeout(function () {
+            setStepState(4, 'active', 'Disabling removed segments...');
+            var rangesJson = JSON.stringify(removeRanges);
+            evalScript('disableClipRanges(\'' + rangesJson.replace(/'/g, "\\'") + '\')')
+              .then(resolve);
+          }, 2000);
+        });
       })
-      .catch(function (err) { showToast('Approve failed: ' + err.message, 'error'); });
+      .then(function (disableResult) {
+        var count = disableResult ? (disableResult.disabledCount || 0) : 0;
+        setStepState(4, 'completed', 'Done! ' + count + ' clips disabled');
+        showToast('Cuts applied! ' + count + ' segments disabled.', 'success');
+      })
+      .catch(function (err) {
+        setStepState(4, 'error', err.message);
+        showToast('Error: ' + err.message, 'error');
+      })
+      .then(function () {
+        isProcessing = false;
+        els.btnApplyCuts.disabled = false;
+      });
   }
+
+  // ==================== UNDO ====================
 
   function undoEdit() {
     evalScript('undoDisableAll()')
@@ -582,11 +654,17 @@
   els.btnRefresh.addEventListener('click', refreshClipInfo);
   els.durationSlider.addEventListener('input', updateDurationDisplay);
   els.btnCreateCut.addEventListener('click', createCut);
-  els.btnApprove.addEventListener('click', approveEdit);
+  els.btnApplyCuts.addEventListener('click', applyCuts);
   els.btnUndo.addEventListener('click', undoEdit);
   els.btnSettings.addEventListener('click', openSettings);
   els.btnSettingsClose.addEventListener('click', closeSettings);
   els.btnSaveSettings.addEventListener('click', saveSettings);
+
+  // Search input — filter transcript in real-time
+  els.transcriptSearch.addEventListener('input', function () {
+    currentSearchQuery = els.transcriptSearch.value.trim();
+    renderTranscript();
+  });
 
   els.settingsOverlay.addEventListener('click', function (e) {
     if (e.target === els.settingsOverlay) closeSettings();

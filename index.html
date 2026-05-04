@@ -112,39 +112,55 @@
         </div>
       </div>
 
-      <!-- Results Section -->
-      <div class="card results-section" id="resultsSection">
+      <!-- Transcript Review Section -->
+      <div class="card transcript-section" id="transcriptSection">
         <div class="card-header">
-          <span class="card-title">Edit Results</span>
-          <span class="card-badge ready">✓ Complete</span>
+          <span class="card-title">Review Transcript</span>
+          <span class="card-badge" id="transcriptBadge">—</span>
         </div>
+
+        <!-- Search Bar -->
+        <div class="transcript-search">
+          <input type="text" class="form-input transcript-search-input" id="transcriptSearch"
+            placeholder="🔍 Search transcript...">
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="transcript-stats" id="transcriptStats">
+          <div class="stat-item stat-kept">
+            <span class="stat-num" id="statKept">0</span>
+            <span class="stat-label">Kept</span>
+          </div>
+          <div class="stat-item stat-removed">
+            <span class="stat-num" id="statRemoved">0</span>
+            <span class="stat-label">Removed</span>
+          </div>
+          <div class="stat-item stat-duration">
+            <span class="stat-num" id="statDuration">0s</span>
+            <span class="stat-label">Final</span>
+          </div>
+          <div class="stat-item stat-saved">
+            <span class="stat-num" id="statSaved">0s</span>
+            <span class="stat-label">Saved</span>
+          </div>
+        </div>
+
+        <!-- AI Summary -->
         <div class="story-summary">
           <div class="story-summary-title">AI Story Summary</div>
           <div class="story-summary-text" id="storySummaryText">—</div>
         </div>
-        <div class="results-summary">
-          <div class="result-item">
-            <div class="result-label">Segments Kept</div>
-            <div class="result-value kept" id="resultKept">—</div>
-          </div>
-          <div class="result-item">
-            <div class="result-label">Segments Removed</div>
-            <div class="result-value removed" id="resultRemoved">—</div>
-          </div>
-          <div class="result-item">
-            <div class="result-label">Final Duration</div>
-            <div class="result-value duration" id="resultDuration">—</div>
-          </div>
-          <div class="result-item">
-            <div class="result-label">Time Saved</div>
-            <div class="result-value saved" id="resultSaved">—</div>
-          </div>
-        </div>
+
+        <!-- Segment List -->
+        <div class="transcript-list" id="transcriptList"></div>
+
+        <!-- Action buttons -->
         <div class="action-buttons">
-          <button class="btn-approve" id="btnApprove">✓ Approve & Clean</button>
+          <button class="btn-approve" id="btnApplyCuts">✂ Apply Cuts</button>
           <button class="btn-undo" id="btnUndo">↩ Undo All</button>
         </div>
       </div>
+
 
     </div>
 
