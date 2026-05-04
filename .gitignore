@@ -1,0 +1,18 @@
+# Editly AI Cut — Plugin Files
+config/settings.json
+.debug
+
+# Test files
+AudioTest/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Audio files
+*.wav
+*.mp3
+*.m4a
+
+# Temp files
+gemini_chunks_*

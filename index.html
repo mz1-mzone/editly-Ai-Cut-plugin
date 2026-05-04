@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editly AI Cut</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-brand">
+        <div class="header-logo">E</div>
+        <div>
+          <div class="header-title">Editly AI Cut</div>
+          <div class="header-subtitle">AI-Powered Story Editor</div>
+        </div>
+      </div>
+      <button class="btn-settings" id="btnSettings" title="Settings">⚙</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+
+      <!-- Clip Info Card -->
+      <div class="card" id="clipInfoCard">
+        <div class="card-header">
+          <span class="card-title">Selected Clips</span>
+          <button class="btn-refresh" id="btnRefresh">↻ Refresh</button>
+        </div>
+        <div id="clipInfoContent">
+          <div class="empty-state">
+            <div class="empty-state-icon">🎬</div>
+            <div class="empty-state-text">Select clips on the timeline<br>then click Refresh</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prompt Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Story Prompt</span>
+        </div>
+        <div class="form-group">
+          <textarea class="form-textarea" id="promptInput"
+            placeholder="Describe the story you want to create... e.g. 'Create a highlight reel focusing on the key moments and emotional beats'"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- Duration Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Target Duration</span>
+          <span class="card-badge waiting">Reference Only</span>
+        </div>
+        <div class="duration-control">
+          <div class="duration-header">
+            <span class="form-label">Desired Length</span>
+            <span class="duration-value" id="durationDisplay">2:00</span>
+          </div>
+          <input type="range" class="duration-slider" id="durationSlider"
+            min="10" max="600" value="120" step="5">
+          <div class="duration-labels">
+            <span>10s</span>
+            <span>10min</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create Cut Button -->
+      <button class="btn-primary" id="btnCreateCut" disabled>
+        ✂ Create a Cut
+      </button>
+
+      <!-- Progress Section -->
+      <div class="card progress-section" id="progressSection">
+        <div class="card-header">
+          <span class="card-title">Processing</span>
+          <span class="spinner" id="progressSpinner"></span>
+        </div>
+        <div class="progress-steps">
+          <div class="progress-step pending" id="step1">
+            <div class="step-indicator">1</div>
+            <div class="step-content">
+              <div class="step-title">Exporting Audio</div>
+              <div class="step-detail" id="step1Detail">Waiting...</div>
+            </div>
+          </div>
+          <div class="progress-step pending" id="step2">
+            <div class="step-indicator">2</div>
+            <div class="step-content">
+              <div class="step-title">Transcribing Speech</div>
+              <div class="step-detail" id="step2Detail">Waiting...</div>
+            </div>
+          </div>
+          <div class="progress-step pending" id="step3">
+            <div class="step-indicator">3</div>
+            <div class="step-content">
+              <div class="step-title">Generating Story Edit</div>
+              <div class="step-detail" id="step3Detail">Waiting...</div>
+            </div>
+          </div>
+          <div class="progress-step pending" id="step4">
+            <div class="step-indicator">4</div>
+            <div class="step-content">
+              <div class="step-title">Applying Cuts</div>
+              <div class="step-detail" id="step4Detail">Waiting...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Section -->
+      <div class="card results-section" id="resultsSection">
+        <div class="card-header">
+          <span class="card-title">Edit Results</span>
+          <span class="card-badge ready">✓ Complete</span>
+        </div>
+        <div class="story-summary">
+          <div class="story-summary-title">AI Story Summary</div>
+          <div class="story-summary-text" id="storySummaryText">—</div>
+        </div>
+        <div class="results-summary">
+          <div class="result-item">
+            <div class="result-label">Segments Kept</div>
+            <div class="result-value kept" id="resultKept">—</div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">Segments Removed</div>
+            <div class="result-value removed" id="resultRemoved">—</div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">Final Duration</div>
+            <div class="result-value duration" id="resultDuration">—</div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">Time Saved</div>
+            <div class="result-value saved" id="resultSaved">—</div>
+          </div>
+        </div>
+        <div class="action-buttons">
+          <button class="btn-approve" id="btnApprove">✓ Approve & Clean</button>
+          <button class="btn-undo" id="btnUndo">↩ Undo All</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <span class="footer-text">Editly AI Cut v1.0</span>
+      <div class="footer-status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Disconnected</span>
+      </div>
+    </div>
+
+    <!-- Settings Overlay -->
+    <div class="settings-overlay" id="settingsOverlay">
+      <div class="settings-panel">
+        <div class="settings-title">
+          Settings
+          <button class="settings-close" id="btnSettingsClose">✕</button>
+        </div>
+        <div class="settings-group">
+          <div class="form-group">
+            <label class="form-label">ElevenLabs API Key</label>
+            <input type="password" class="form-input" id="settingsApiKey"
+              placeholder="sk_...">
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="form-group">
+            <label class="form-label">Anthropic API Key</label>
+            <input type="password" class="form-input" id="settingsSttModel"
+              placeholder="sk-ant-...">
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="form-group">
+            <label class="form-label">AI Model</label>
+            <select class="form-select" id="settingsAiModel">
+              <option value="claude-opus-4-7">Claude Opus 4.7</option>
+              <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+              <option value="claude-opus-4-6">Claude Opus 4.6</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-save-settings" id="btnSaveSettings">Save Settings</button>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+  </div>
+
+  <script src="js/CSInterface.js"></script>
+  <script src="js/utils/audio-utils.js"></script>
+  <script src="js/utils/timeline-state.js"></script>
+  <script src="js/api/silence-detect.js"></script>
+  <!-- ElevenLabs + Claude APIs -->
+  <script src="js/api/transcribe.js"></script>
+  <script src="js/api/ai-editor.js"></script>
+  <!-- Auto-updater -->
+  <script src="js/updater.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
