@@ -1,5 +1,5 @@
 /**
- * Editly AI Cut — Claude AI Editor
+ * Editly AI Editor — Claude AI Editor
  * Uses Anthropic Messages API with Claude + adaptive thinking.
  * Pre-filters junk (fillers/silence/noise), sends only clean speech to Claude in chunks.
  */

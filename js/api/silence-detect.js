@@ -1,5 +1,5 @@
 /**
- * Editly AI Cut — FFmpeg Silence Detection
+ * Editly AI Editor — FFmpeg Silence Detection
  * Analyzes audio waveform to detect silence at the signal level.
  * This catches pauses that transcription completely misses.
  */

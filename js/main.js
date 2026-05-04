@@ -1,5 +1,5 @@
 /**
- * Editly AI Cut — Main Application Controller
+ * Editly AI Editor — Main Application Controller
  * Orchestrates: UI ↔ ExtendScript ↔ ffmpeg ↔ ElevenLabs STT ↔ Claude AI
  */
 
@@ -680,7 +680,7 @@
       .then(function () {
         isProcessing = false;
         els.btnRippleDelete.disabled = false;
-        els.btnRippleDelete.textContent = '🗑 Ripple Delete — Irreversible!';
+        els.btnRippleDelete.textContent = '🗑 Ripple Delete  Irreversible!';
       });
   }
 

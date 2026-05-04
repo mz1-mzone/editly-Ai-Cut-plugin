@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================
-# Editly AI Cut — Mac Installer
+# Editly AI Editor Mac Installer
 # One-command install for Adobe Premiere Pro
 # ============================================
 
@@ -13,7 +13,7 @@ REPO_URL="https://github.com/mz1-mzone/editly-Ai-Cut-plugin.git"
 
 echo ""
 echo "╔═══════════════════════════════════════╗"
-echo "║     Editly AI Cut — Installer         ║"
+echo "║     Editly AI Editor Installer         ║"
 echo "║     AI-Powered Video Editor           ║"
 echo "╚═══════════════════════════════════════╝"
 echo ""
@@ -29,7 +29,7 @@ fi
 if ! command -v /usr/local/bin/ffmpeg &> /dev/null; then
     echo "⚠️  ffmpeg not found at /usr/local/bin/ffmpeg"
     echo "   Install it: brew install ffmpeg"
-    echo "   (Continuing anyway — the plugin needs ffmpeg to work)"
+    echo "   (Continuing anyway the plugin needs ffmpeg to work)"
     echo ""
 fi
 
@@ -67,7 +67,7 @@ echo "✅ Installation complete!"
 echo ""
 echo "Next steps:"
 echo "  1. Restart Adobe Premiere Pro"
-echo "  2. Go to: Window → Extensions → Editly AI Cut"
+echo "  2. Go to: Window → Extensions → Editly AI Editor"
 echo "  3. Click ⚙ Settings and enter your API keys:"
 echo "     • ElevenLabs API Key (for transcription)"
 echo "     • Anthropic API Key (for AI editing)"

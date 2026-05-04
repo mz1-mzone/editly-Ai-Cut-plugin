@@ -1,5 +1,5 @@
 /**
- * Editly AI Cut — ElevenLabs Speech-to-Text
+ * Editly AI Editor — ElevenLabs Speech-to-Text
  * Uses ElevenLabs Scribe API directly for audio transcription.
  */
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ExtensionManifest Version="11.0" ExtensionBundleId="com.editly.aicut"
   ExtensionBundleVersion="1.0.0"
-  ExtensionBundleName="Editly AI Cut"
+  ExtensionBundleName="Editly AI Editor"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
   <ExtensionList>
@@ -38,7 +38,7 @@
         </Lifecycle>
         <UI>
           <Type>Panel</Type>
-          <Menu>Editly AI Cut</Menu>
+          <Menu>Editly AI Editor</Menu>
           <Geometry>
             <Size>
               <Height>700</Height>

@@ -1,18 +1,18 @@
-# Editly AI Cut
+# Editly AI Editor
 
 **AI-Powered Story Editor for Adobe Premiere Pro**
 
-Editly AI Cut uses ElevenLabs for speech transcription and Claude AI for intelligent story editing. Select your clips, describe the story you want, and the AI creates professional cuts — removing fillers, silence, and weak sections while keeping the narrative intact.
+Editly AI Editor uses ElevenLabs for speech transcription and Claude AI for intelligent story editing. Select your clips, describe the story you want, and the AI creates professional cuts removing fillers, silence, and weak sections while keeping the narrative intact.
 
 ---
 
 ## ✨ Features
 
-- **AI Story Editing** — Claude reads the transcript and makes narrative-focused cuts
-- **Auto Filler Detection** — Removes "aaaa", "um", breathing, and silence
-- **Arabic Support** — Native Arabic speech pattern understanding
-- **Non-Destructive** — Disables clips instead of deleting (undo anytime)
-- **Auto-Updates** — Plugin checks GitHub for updates on every launch
+- **AI Story Editing** Claude reads the transcript and makes narrative-focused cuts
+- **Auto Filler Detection** Removes "aaaa", "um", breathing, and silence
+- **Arabic Support** Native Arabic speech pattern understanding
+- **Non-Destructive** Disables clips instead of deleting (undo anytime)
+- **Auto-Updates** Plugin checks GitHub for updates on every launch
 
 ---
 
@@ -43,11 +43,11 @@ Or download `install-mac.sh` and run it.
 
 ## 🔑 Setup
 
-1. Open Premiere Pro → **Window** → **Extensions** → **Editly AI Cut**
+1. Open Premiere Pro → **Window** → **Extensions** → **Editly AI Editor**
 2. Click the **⚙ Settings** button
 3. Enter your API keys:
-   - **ElevenLabs API Key** — Get one at [elevenlabs.io](https://elevenlabs.io)
-   - **Anthropic API Key** — Get one at [console.anthropic.com](https://console.anthropic.com)
+   - **ElevenLabs API Key** Get one at [elevenlabs.io](https://elevenlabs.io)
+   - **Anthropic API Key** Get one at [console.anthropic.com](https://console.anthropic.com)
 4. Click **Save Settings**
 
 ---
@@ -61,13 +61,13 @@ Or download `install-mac.sh` and run it.
 5. Click **✂ Create a Cut**
 6. Wait for the 4-step process:
    - Export Audio → Transcribe → AI Story Edit → Apply Cuts
-7. Review the results — **Approve** or **Undo**
+7. Review the results **Approve** or **Undo**
 
 ---
 
 ## 🔄 Auto-Updates
 
-The plugin automatically checks GitHub for new versions every time Premiere Pro opens. If an update is found, it downloads and applies it — you just need to restart Premiere.
+The plugin automatically checks GitHub for new versions every time Premiere Pro opens. If an update is found, it downloads and applies it you just need to restart Premiere.
 
 For manual updates:
 ```bash

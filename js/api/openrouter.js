@@ -1,5 +1,5 @@
 /**
- * Editly AI Cut — OpenRouter API Client
+ * Editly AI Editor — OpenRouter API Client
  * Base wrapper for OpenRouter API calls using Node.js http module.
  */
 
@@ -32,7 +32,7 @@ var OpenRouterClient = (function () {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData),
           'HTTP-Referer': 'https://editly.studio',
-          'X-Title': 'Editly AI Cut'
+          'X-Title': 'Editly AI Editor'
         }
       };
 

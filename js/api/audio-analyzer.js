@@ -1,5 +1,5 @@
 /**
- * Editly AI Cut — Gemini Chunked Audio Mapper
+ * Editly AI Editor — Gemini Chunked Audio Mapper
  *
  * Splits audio into smart 2-3 minute chunks, sends each to Gemini
  * for forensic-level audio analysis. Detects every filler, breath,

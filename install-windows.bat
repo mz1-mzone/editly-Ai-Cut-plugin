@@ -1,12 +1,12 @@
 @echo off
 REM ============================================
-REM Editly AI Cut — Windows Installer
+REM Editly AI Editor - Windows Installer
 REM One-command install for Adobe Premiere Pro
 REM ============================================
 
 echo.
 echo ========================================
-echo   Editly AI Cut - Installer
+echo   Editly AI Editor - Installer
 echo   AI-Powered Video Editor
 echo ========================================
 echo.
@@ -59,7 +59,7 @@ echo [OK] Installation complete!
 echo.
 echo Next steps:
 echo   1. Restart Adobe Premiere Pro
-echo   2. Go to: Window ^> Extensions ^> Editly AI Cut
+echo   2. Go to: Window ^> Extensions ^> Editly AI Editor
 echo   3. Click Settings and enter your API keys:
 echo      - ElevenLabs API Key (for transcription)
 echo      - Anthropic API Key (for AI editing)

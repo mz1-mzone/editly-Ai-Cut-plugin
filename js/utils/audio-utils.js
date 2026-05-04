@@ -1,5 +1,5 @@
 /**
- * Editly AI Cut — Audio Utilities
+ * Editly AI Editor — Audio Utilities
  * File handling helpers for the CEP Node.js environment.
  */
 

@@ -1,5 +1,5 @@
 /**
- * Editly AI Cut — Timeline State Manager
+ * Editly AI Editor — Timeline State Manager
  * Saves and restores timeline state for the custom undo system.
  */
 

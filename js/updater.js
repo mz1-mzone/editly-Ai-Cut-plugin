@@ -1,5 +1,5 @@
 /**
- * Editly AI Cut — GitHub Auto-Updater
+ * Editly AI Editor — GitHub Auto-Updater
  * Checks for new commits on main branch and auto-updates the plugin.
  *
  * How it works:

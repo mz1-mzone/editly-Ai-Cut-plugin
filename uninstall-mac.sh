@@ -1,6 +1,6 @@
 #!/bin/bash
 # ============================================
-# Editly AI Cut — Mac Uninstaller
+# Editly AI Editor Mac Uninstaller
 # ============================================
 
 INSTALL_DIR="/Library/Application Support/Adobe/CEP/extensions/EditlyPlugin"
@@ -8,7 +8,7 @@ USER_INSTALL="$HOME/Library/Application Support/Adobe/CEP/extensions/EditlyPlugi
 
 echo ""
 echo "╔═══════════════════════════════════════╗"
-echo "║     Editly AI Cut — Uninstaller       ║"
+echo "║     Editly AI Editor Uninstaller       ║"
 echo "╚═══════════════════════════════════════╝"
 echo ""
 
@@ -29,7 +29,7 @@ if [ -d "$USER_INSTALL" ]; then
 fi
 
 if [ "$FOUND" = false ]; then
-    echo "❌ Editly AI Cut not found. Already uninstalled?"
+    echo "❌ Editly AI Editor not found. Already uninstalled?"
 fi
 
 # Clean up pkg receipt
