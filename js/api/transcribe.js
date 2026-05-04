@@ -229,14 +229,16 @@ var TranscriptionPipeline = (function () {
               segments.push({
                 start: currentSegment.start,
                 end: currentSegment.end,
-                text: currentSegment.words.join(' ')
+                text: currentSegment.words.join(' '),
+                type: 'speech'
               });
             }
             // Insert explicit silence segment
             segments.push({
               start: currentSegment.end,
               end: wordStart,
-              text: '[SILENCE ' + gap.toFixed(1) + 's]'
+              text: '[silence ' + gap.toFixed(1) + 's]',
+              type: 'silence'
             });
             currentSegment = { start: null, end: null, words: [] };
           }
@@ -257,7 +259,8 @@ var TranscriptionPipeline = (function () {
           segments.push({
             start: wordStart,
             end: wordEnd,
-            text: '[FILLER: ' + wordText + ']'
+            text: wordText,
+            type: 'filler'
           });
           continue;
         }
@@ -279,7 +282,8 @@ var TranscriptionPipeline = (function () {
             segments.push({
               start: currentSegment.start,
               end: currentSegment.end,
-              text: currentSegment.words.join(' ')
+              text: currentSegment.words.join(' '),
+              type: 'speech'
             });
           }
           currentSegment = { start: null, end: null, words: [] };
@@ -295,7 +299,8 @@ var TranscriptionPipeline = (function () {
           segments.push({
             start: lastWord.end + offset,
             end: audioDuration + offset,
-            text: '[SILENCE ' + trailingGap.toFixed(1) + 's]'
+            text: '[silence ' + trailingGap.toFixed(1) + 's]',
+            type: 'silence'
           });
         }
       }
@@ -305,7 +310,8 @@ var TranscriptionPipeline = (function () {
         segments.unshift({
           start: offset,
           end: actualWords[0].start + offset,
-          text: '[SILENCE ' + actualWords[0].start.toFixed(1) + 's]'
+          text: '[silence ' + actualWords[0].start.toFixed(1) + 's]',
+          type: 'silence'
         });
       }
 
@@ -314,7 +320,8 @@ var TranscriptionPipeline = (function () {
       segments.push({
         start: offset,
         end: offset + dur,
-        text: fullText.trim()
+        text: fullText.trim(),
+        type: 'speech'
       });
     }
 

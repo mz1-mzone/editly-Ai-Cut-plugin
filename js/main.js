@@ -400,15 +400,32 @@
         }
 
         var segments = transcriptResult.segments;
-        setStepState(2, 'completed', segments.length + ' segments');
 
-        // ---- STEP 3: Claude edits the story ----
-        setStepState(3, 'active', 'Claude is editing the story...');
+        // Count types for display
+        var speechCount = segments.filter(function (s) { return s.type === 'speech'; }).length;
+        var fillerCount = segments.filter(function (s) { return s.type === 'filler'; }).length;
+        var silenceCount = segments.filter(function (s) { return s.type === 'silence'; }).length;
+
+        setStepState(2, 'completed',
+          speechCount + ' speech, ' + fillerCount + ' fillers, ' + silenceCount + ' silences');
+
+        // ---- STEP 3: Claude edits the story (chunked) ----
+        setStepState(3, 'active', 'Pre-filtering junk...');
+
+        var chunkProgress = function (chunkIdx, totalChunks) {
+          if (totalChunks > 1) {
+            setStepState(3, 'active', 'Claude: chunk ' + (chunkIdx + 1) + '/' + totalChunks + '...');
+          } else {
+            setStepState(3, 'active', 'Claude is editing the story...');
+          }
+        };
+
         return aiEditor.generateEditDecisions(
           segments,
           prompt,
           targetDuration,
-          currentClipData
+          currentClipData,
+          chunkProgress
         );
       })
       .then(function (editResult) {

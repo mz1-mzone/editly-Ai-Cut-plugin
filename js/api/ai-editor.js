@@ -1,6 +1,7 @@
 /**
  * Editly AI Cut — Claude AI Editor
- * Uses Anthropic Messages API directly with Claude Opus 4.7 + adaptive thinking.
+ * Uses Anthropic Messages API with Claude + adaptive thinking.
+ * Pre-filters junk (fillers/silence/noise), sends only clean speech to Claude in chunks.
  */
 
 var AIEditor = (function () {
@@ -13,27 +14,31 @@ var AIEditor = (function () {
     this.model = 'claude-opus-4-7';
   }
 
-  /**
-   * Set the Claude model to use.
-   */
   AIEditor.prototype.setModel = function (model) {
     this.model = model;
   };
 
   /**
    * Generate edit decisions from transcript data using Claude.
+   * Pipeline: Pre-filter junk → Chunk clean speech → Claude per chunk → Merge all
+   *
+   * @param {Array} transcriptSegments - segments with {start, end, text, type}
+   * @param {string} userPrompt - story direction
+   * @param {number} targetDuration - loose target in seconds
+   * @param {Object} clipData - clip metadata
+   * @param {function} onChunkProgress - callback(chunkIdx, totalChunks) for UI
    */
-  AIEditor.prototype.generateEditDecisions = function (transcriptSegments, userPrompt, targetDuration, clipData) {
+  AIEditor.prototype.generateEditDecisions = function (transcriptSegments, userPrompt, targetDuration, clipData, onChunkProgress) {
     var self = this;
+    onChunkProgress = onChunkProgress || function () {};
 
     var timelineStart = transcriptSegments[0].start;
     var timelineEnd = transcriptSegments[transcriptSegments.length - 1].end;
     var totalDuration = timelineEnd - timelineStart;
 
-    // ========== PRE-MERGE: Combine adjacent non-speech into blocks ==========
-    // This prevents Claude from outputting 30+ identical "remove filler" segments
+    // ========== STEP 1: PRE-FILTER — Separate speech from junk ==========
     var NON_SPEECH = ['filler', 'breathing', 'silence', 'noise', 'stutter', 'repeated'];
-    var merged = [];
+    var speechSegments = [];
     var autoRemoveSegments = [];
 
     transcriptSegments.forEach(function (seg) {
@@ -41,10 +46,9 @@ var AIEditor = (function () {
       var isSpeech = NON_SPEECH.indexOf(type) === -1;
 
       if (!isSpeech) {
-        // Non-speech: auto-remove (don't send to Claude at all)
+        // Non-speech: auto-remove (never sent to Claude)
         var lastRemove = autoRemoveSegments[autoRemoveSegments.length - 1];
         if (lastRemove && Math.abs(seg.start - lastRemove.end) < 0.05) {
-          // Merge with previous non-speech block
           lastRemove.end = seg.end;
           lastRemove.reason += ', ' + type;
         } else {
@@ -56,22 +60,21 @@ var AIEditor = (function () {
           });
         }
       } else {
-        // Speech: send to Claude for story decisions
-        var lastSpeech = merged[merged.length - 1];
+        // Speech: merge adjacent
+        var lastSpeech = speechSegments[speechSegments.length - 1];
         if (lastSpeech && (seg.start - lastSpeech.end) < 0.3) {
-          // Merge adjacent speech segments
           lastSpeech.end = seg.end;
           lastSpeech.text += ' ' + (seg.text || '').trim();
         } else {
-          merged.push({ start: seg.start, end: seg.end, text: (seg.text || '').trim() });
+          speechSegments.push({ start: seg.start, end: seg.end, text: (seg.text || '').trim() });
         }
       }
     });
 
-    console.log('[Claude] Speech segments: ' + merged.length + ', auto-remove blocks: ' + autoRemoveSegments.length);
+    console.log('[Claude] Pre-filter: ' + speechSegments.length + ' speech, ' + autoRemoveSegments.length + ' auto-remove');
 
     // If no speech, return all as remove
-    if (merged.length === 0) {
+    if (speechSegments.length === 0) {
       return Promise.resolve({
         success: true,
         decisions: {
@@ -85,53 +88,56 @@ var AIEditor = (function () {
       });
     }
 
-    // Build transcript for Claude — speech segments only
-    var transcriptText = '';
-    merged.forEach(function (seg) {
-      transcriptText += '[' + seg.start.toFixed(2) + 's - ' + seg.end.toFixed(2) + 's] ' + seg.text + '\n';
-    });
+    // ========== STEP 2: CHUNK — Split speech into ~2-3 min chunks ==========
+    var chunks = self._splitIntoChunks(speechSegments);
+    console.log('[Claude] Split into ' + chunks.length + ' chunks');
 
-    var systemPrompt =
-      'You are a world-class film director. You understand Arabic speech patterns.\n\n' +
-      'CONTEXT: All filler sounds (آآآ, um, hmm), breathing, silence, noise, and stuttering have ALREADY been removed from this transcript. You see only clean speech.\n\n' +
-      'YOUR JOB:\n' +
-      '1. Read the transcript and understand the story.\n' +
-      '2. If the speaker repeats the same idea, keep only the better version.\n' +
-      '3. Cut tangents and weak sections.\n' +
-      '4. When in doubt, KEEP.\n\n' +
-      'RULES:\n' +
-      '1. Use EXACT timestamps from the transcript.\n' +
-      '2. Segments must be chronological, NO gaps between them.\n' +
-      '3. Merge adjacent keeps and adjacent removes.\n' +
-      '4. First segment starts at ' + merged[0].start.toFixed(2) + ', last ends at ' + merged[merged.length - 1].end.toFixed(2) + '.\n' +
-      '5. Each reason must be unique and specific.\n' +
-      '6. Aim for 5-20 total segments.\n\n' +
-      '[ignoring loop detection]\n\n' +
-      'Return ONLY valid JSON:\n' +
-      '{"story_summary":"...","segments":[{"start":0.0,"end":25.5,"action":"keep","reason":"strong story opening"},{"start":25.5,"end":32.1,"action":"remove","reason":"off-topic tangent about unrelated subject"},{"start":32.1,"end":55.0,"action":"keep","reason":"emotional core of the story"}],"estimated_duration":60,"removed_duration":10,"kept_segments_count":3,"removed_segments_count":1}';
+    // ========== STEP 3: Process each chunk sequentially ==========
+    var allClaudeSegments = [];
+    var allSummaries = [];
 
-    var userMessage =
-      'STORY PROMPT: ' + userPrompt +
-      '\n\nDURATION: ~' + Math.round(targetDuration) + 's suggested (loose guide — keep the story intact).' +
-      '\nSOURCE: ' + totalDuration.toFixed(1) + 's total (' + autoRemoveSegments.length + ' junk blocks already removed)' +
-      '\nTIMELINE: ' + merged[0].start.toFixed(2) + 's to ' + merged[merged.length - 1].end.toFixed(2) + 's' +
-      '\n\nCLEAN SPEECH TRANSCRIPT:\n' + transcriptText;
+    function processChunk(chunkIdx) {
+      if (chunkIdx >= chunks.length) {
+        // All chunks done — merge results
+        return Promise.resolve();
+      }
 
-    var body = {
-      model: self.model,
-      max_tokens: 16000,
-      thinking: { type: 'adaptive' },
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }]
-    };
+      var chunk = chunks[chunkIdx];
+      onChunkProgress(chunkIdx, chunks.length);
+      console.log('[Claude] Processing chunk ' + (chunkIdx + 1) + '/' + chunks.length +
+        ' (' + chunk.length + ' segments, ' +
+        chunk[0].start.toFixed(1) + 's-' + chunk[chunk.length - 1].end.toFixed(1) + 's)');
 
-    return this._anthropicRequest(body).then(function (response) {
-      var result = self._parseEditDecisions(response);
-      if (!result.success) return result;
+      var prevSummary = allSummaries.length > 0
+        ? 'Previous sections summary: ' + allSummaries.join('. ')
+        : '';
 
-      // Merge Claude's speech decisions with auto-removed junk
-      var claudeSegments = result.decisions.segments || [];
-      var allSegments = claudeSegments.concat(autoRemoveSegments);
+      return self._processChunk(chunk, chunkIdx, chunks.length, userPrompt, targetDuration, totalDuration, autoRemoveSegments.length, prevSummary)
+        .then(function (result) {
+          if (result.success) {
+            allClaudeSegments = allClaudeSegments.concat(result.decisions.segments || []);
+            if (result.decisions.story_summary) {
+              allSummaries.push(result.decisions.story_summary);
+            }
+          } else {
+            console.log('[Claude] Chunk ' + (chunkIdx + 1) + ' failed: ' + result.error);
+            // On failure, keep all segments in this chunk
+            chunk.forEach(function (seg) {
+              allClaudeSegments.push({
+                start: seg.start,
+                end: seg.end,
+                action: 'keep',
+                reason: 'chunk processing failed — kept as safety'
+              });
+            });
+          }
+          return processChunk(chunkIdx + 1);
+        });
+    }
+
+    return processChunk(0).then(function () {
+      // ========== STEP 4: MERGE — Claude decisions + auto-remove ==========
+      var allSegments = allClaudeSegments.concat(autoRemoveSegments);
       allSegments.sort(function (a, b) { return a.start - b.start; });
 
       // Recalculate stats
@@ -141,14 +147,128 @@ var AIEditor = (function () {
         if (s.action === 'keep') { kd += d; kc++; } else { rd += d; rc++; }
       });
 
-      result.decisions.segments = allSegments;
-      result.decisions.estimated_duration = kd;
-      result.decisions.removed_duration = rd;
-      result.decisions.kept_segments_count = kc;
-      result.decisions.removed_segments_count = rc;
+      console.log('[Claude] Final merged: ' + kc + ' kept (' + kd.toFixed(1) + 's), ' + rc + ' removed (' + rd.toFixed(1) + 's)');
 
-      console.log('[Claude] Final: ' + kc + ' kept (' + kd.toFixed(1) + 's), ' + rc + ' removed (' + rd.toFixed(1) + 's)');
-      return result;
+      return {
+        success: true,
+        decisions: {
+          segments: allSegments,
+          story_summary: allSummaries.join('. ') || 'Edit complete.',
+          estimated_duration: kd,
+          removed_duration: rd,
+          kept_segments_count: kc,
+          removed_segments_count: rc
+        }
+      };
+    });
+  };
+
+  /**
+   * Split speech segments into ~2-3 minute chunks, breaking on sentence boundaries.
+   */
+  AIEditor.prototype._splitIntoChunks = function (speechSegments) {
+    if (speechSegments.length === 0) return [];
+
+    var totalDuration = speechSegments[speechSegments.length - 1].end - speechSegments[0].start;
+
+    // If short enough, one chunk
+    if (totalDuration <= 180 || speechSegments.length <= 15) {
+      return [speechSegments];
+    }
+
+    var TARGET_CHUNK_SECS = 150; // 2.5 minutes
+    var numChunks = Math.max(2, Math.ceil(totalDuration / TARGET_CHUNK_SECS));
+    var chunkDuration = totalDuration / numChunks;
+
+    var chunks = [];
+    var currentChunk = [];
+    var chunkStartTime = speechSegments[0].start;
+
+    speechSegments.forEach(function (seg) {
+      currentChunk.push(seg);
+
+      var elapsed = seg.end - chunkStartTime;
+      if (elapsed >= chunkDuration && currentChunk.length >= 3) {
+        chunks.push(currentChunk);
+        currentChunk = [];
+        chunkStartTime = seg.end;
+      }
+    });
+
+    // Add remaining
+    if (currentChunk.length > 0) {
+      // If the last chunk is tiny, merge with previous
+      if (chunks.length > 0 && currentChunk.length <= 2) {
+        chunks[chunks.length - 1] = chunks[chunks.length - 1].concat(currentChunk);
+      } else {
+        chunks.push(currentChunk);
+      }
+    }
+
+    return chunks;
+  };
+
+  /**
+   * Process a single chunk with Claude.
+   */
+  AIEditor.prototype._processChunk = function (chunk, chunkIdx, totalChunks, userPrompt, targetDuration, totalSourceDuration, autoRemovedCount, prevSummary) {
+    var self = this;
+
+    var chunkStart = chunk[0].start;
+    var chunkEnd = chunk[chunk.length - 1].end;
+    var chunkDuration = chunkEnd - chunkStart;
+
+    // Build transcript text for this chunk
+    var transcriptText = '';
+    chunk.forEach(function (seg) {
+      transcriptText += '[' + seg.start.toFixed(2) + 's - ' + seg.end.toFixed(2) + 's] ' + seg.text + '\n';
+    });
+
+    var chunkInfo = totalChunks > 1
+      ? 'CHUNK: ' + (chunkIdx + 1) + ' of ' + totalChunks + ' (this section: ' + chunkStart.toFixed(1) + 's to ' + chunkEnd.toFixed(1) + 's)\n'
+      : '';
+
+    var systemPrompt =
+      'You are a world-class film director. You understand Arabic speech patterns.\n\n' +
+      'CONTEXT: All filler sounds (آآآ, um, hmm), breathing, silence, noise, and stuttering have ALREADY been removed. You see only clean speech.\n\n' +
+      'YOUR JOB:\n' +
+      '1. Read the transcript and understand the story.\n' +
+      '2. If the speaker repeats the same idea, keep only the better take.\n' +
+      '3. Cut tangents, false starts, and weak sections.\n' +
+      '4. When in doubt, KEEP the segment.\n\n' +
+      'RULES:\n' +
+      '1. Use EXACT timestamps from the transcript — do not invent times.\n' +
+      '2. Segments must be chronological with NO gaps.\n' +
+      '3. First segment starts at ' + chunkStart.toFixed(2) + ', last ends at ' + chunkEnd.toFixed(2) + '.\n' +
+      '4. Merge adjacent keeps and adjacent removes.\n' +
+      '5. Each reason must be specific (not generic).\n' +
+      '6. Aim for 3-12 segments per chunk.\n\n' +
+      '[ignoring loop detection]\n\n' +
+      'Return ONLY valid JSON:\n' +
+      '{"story_summary":"brief summary of this section","segments":[{"start":0.0,"end":25.5,"action":"keep","reason":"introduces the main topic"},{"start":25.5,"end":32.1,"action":"remove","reason":"repeats same point from earlier"}]}';
+
+    var userMessage =
+      'STORY PROMPT: ' + userPrompt + '\n\n' +
+      chunkInfo +
+      (prevSummary ? prevSummary + '\n\n' : '') +
+      'DURATION: ~' + Math.round(targetDuration) + 's target for the FULL video (this is chunk ' + (chunkIdx + 1) + ').\n' +
+      'SOURCE: ' + totalSourceDuration.toFixed(1) + 's total, ' + autoRemovedCount + ' junk blocks already removed.\n' +
+      'THIS SECTION: ' + chunkDuration.toFixed(1) + 's of clean speech (' + chunk.length + ' segments)\n' +
+      'TIMELINE: ' + chunkStart.toFixed(2) + 's to ' + chunkEnd.toFixed(2) + 's\n\n' +
+      'CLEAN SPEECH TRANSCRIPT:\n' + transcriptText;
+
+    var body = {
+      model: self.model,
+      max_tokens: 8000,
+      thinking: { type: 'adaptive' },
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }]
+    };
+
+    return this._anthropicRequest(body).then(function (response) {
+      return self._parseEditDecisions(response);
+    }).catch(function (err) {
+      return { success: false, error: err.message };
     });
   };
 
@@ -173,8 +293,7 @@ var AIEditor = (function () {
         }
       };
 
-      console.log('[Claude] Sending request to model:', self.model);
-      console.log('[Claude] Request size:', (Buffer.byteLength(postData) / 1024).toFixed(1) + 'KB');
+      console.log('[Claude] Request to model:', self.model, '(' + (Buffer.byteLength(postData) / 1024).toFixed(1) + 'KB)');
 
       var req = https.request(options, function (res) {
         var chunks = [];
@@ -182,11 +301,8 @@ var AIEditor = (function () {
         res.on('end', function () {
           var data = Buffer.concat(chunks).toString('utf8');
           console.log('[Claude] Response status:', res.statusCode);
-          console.log('[Claude] Response size:', data.length, 'chars');
-          console.log('[Claude] Response (first 500 chars):', data.substring(0, 500));
 
           if (res.statusCode >= 400) {
-            console.log('[Claude] Error response:', data.substring(0, 800));
             reject(new Error('Claude API error ' + res.statusCode + ': ' + data.substring(0, 500)));
             return;
           }
@@ -197,62 +313,41 @@ var AIEditor = (function () {
           }
 
           try {
-            var parsed = JSON.parse(data);
-            resolve(parsed);
+            resolve(JSON.parse(data));
           } catch (e) {
-            console.log('[Claude] FULL raw response:', data.substring(0, 2000));
-            reject(new Error('Failed to parse Claude API response: ' + e.message));
+            reject(new Error('Failed to parse Claude response: ' + e.message));
           }
         });
       });
 
-      req.on('error', function (e) {
-        reject(new Error('Claude request failed: ' + e.message));
-      });
-
-      req.setTimeout(180000, function () {
-        req.destroy();
-        reject(new Error('Claude request timed out after 180s'));
-      });
-
+      req.on('error', function (e) { reject(new Error('Claude request failed: ' + e.message)); });
+      req.setTimeout(180000, function () { req.destroy(); reject(new Error('Claude timed out after 180s')); });
       req.write(postData);
       req.end();
     });
   };
 
   /**
-   * Parse the Claude response into structured edit decisions.
-   * Response format: { content: [{ type: "thinking", thinking: "..." }, { type: "text", text: "..." }] }
+   * Parse Claude response into structured edit decisions.
    */
   AIEditor.prototype._parseEditDecisions = function (response) {
     try {
-      console.log('[Claude] Response keys:', Object.keys(response));
-
-      // Check for API-level errors
       if (response.error) {
-        return {
-          success: false,
-          error: 'Claude API error: ' + (response.error.message || JSON.stringify(response.error))
-        };
+        return { success: false, error: 'Claude API error: ' + (response.error.message || JSON.stringify(response.error)) };
       }
 
-      // Check content exists
       if (!response.content || response.content.length === 0) {
-        console.log('[Claude] No content! Full response:', JSON.stringify(response).substring(0, 1000));
-        return {
-          success: false,
-          error: 'Claude returned no content. stop_reason: ' + (response.stop_reason || 'unknown')
-        };
+        return { success: false, error: 'Claude returned no content. stop_reason: ' + (response.stop_reason || 'unknown') };
       }
 
-      // Log thinking if present
+      // Log thinking
       response.content.forEach(function (block, i) {
         if (block.type === 'thinking') {
-          console.log('[Claude] Thinking block ' + i + ' (first 300 chars):', (block.thinking || '').substring(0, 300));
+          console.log('[Claude] Thinking ' + i + ':', (block.thinking || '').substring(0, 200));
         }
       });
 
-      // Find the text block (the actual response)
+      // Find text block
       var textBlock = null;
       for (var i = 0; i < response.content.length; i++) {
         if (response.content[i].type === 'text') {
@@ -262,34 +357,16 @@ var AIEditor = (function () {
       }
 
       if (!textBlock || !textBlock.text) {
-        console.log('[Claude] No text block found! Content types:', response.content.map(function (b) { return b.type; }));
-        return {
-          success: false,
-          error: 'Claude response has no text block. stop_reason: ' + (response.stop_reason || 'unknown')
-        };
+        return { success: false, error: 'No text block in Claude response' };
       }
 
-      var content = textBlock.text;
-      console.log('[Claude] Text content length:', content.length);
-      console.log('[Claude] Text (first 300):', content.substring(0, 300));
-      console.log('[Claude] Text (last 200):', content.substring(content.length - 200));
-      console.log('[Claude] stop_reason:', response.stop_reason);
+      var jsonStr = textBlock.text.trim();
 
-      // Check if response was cut off
-      if (response.stop_reason === 'max_tokens') {
-        console.log('[Claude] WARNING: Response was truncated!');
-      }
-
-      // Clean the content
-      var jsonStr = content.trim();
-
-      // Remove markdown fences if present
+      // Remove markdown fences
       var fenceMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-      if (fenceMatch) {
-        jsonStr = fenceMatch[1].trim();
-      }
+      if (fenceMatch) jsonStr = fenceMatch[1].trim();
 
-      // If truncated, try to repair
+      // Repair truncated JSON if needed
       if (response.stop_reason === 'max_tokens') {
         jsonStr = this._repairTruncatedJson(jsonStr);
       }
@@ -298,20 +375,15 @@ var AIEditor = (function () {
       try {
         decisions = JSON.parse(jsonStr);
       } catch (parseErr) {
-        console.log('[Claude] JSON parse failed, attempting repair...');
         var repaired = this._repairTruncatedJson(jsonStr);
         decisions = JSON.parse(repaired);
       }
 
-      // Validate structure
       if (!decisions.segments || !Array.isArray(decisions.segments)) {
-        return {
-          success: false,
-          error: 'AI response missing segments array'
-        };
+        return { success: false, error: 'Missing segments array' };
       }
 
-      // Normalize segments
+      // Normalize
       decisions.segments = decisions.segments.map(function (seg) {
         return {
           start: parseFloat(seg.start) || 0,
@@ -319,63 +391,27 @@ var AIEditor = (function () {
           action: (seg.action || 'keep').toLowerCase(),
           reason: seg.reason || ''
         };
-      });
-
-      // Filter invalid
-      decisions.segments = decisions.segments.filter(function (seg) {
+      }).filter(function (seg) {
         return seg.end > seg.start;
       });
 
-      // Calculate stats
-      var keepDuration = 0, removeDuration = 0, keepCount = 0, removeCount = 0;
-      decisions.segments.forEach(function (seg) {
-        var dur = seg.end - seg.start;
-        if (seg.action === 'keep') { keepDuration += dur; keepCount++; }
-        else { removeDuration += dur; removeCount++; }
-      });
-
-      decisions.estimated_duration = keepDuration;
-      decisions.removed_duration = removeDuration;
-      decisions.kept_segments_count = keepCount;
-      decisions.removed_segments_count = removeCount;
-      decisions.story_summary = decisions.story_summary || 'Edit complete';
-
-      console.log('[Claude] ✓ Parsed', decisions.segments.length, 'segments. Keep:', keepCount, 'Remove:', removeCount);
-
+      console.log('[Claude] Parsed ' + decisions.segments.length + ' segments');
       return { success: true, decisions: decisions };
 
     } catch (e) {
       console.log('[Claude] Parse error:', e.message);
-      console.log('[Claude] Parse stack:', e.stack);
-      var rawText = '';
-      try {
-        for (var j = 0; j < response.content.length; j++) {
-          if (response.content[j].type === 'text') {
-            rawText = response.content[j].text;
-            break;
-          }
-        }
-      } catch (x) {}
-      console.log('[Claude] Raw text that failed:', rawText.substring(0, 500));
-      return {
-        success: false,
-        error: 'Failed to parse AI edit decisions: ' + e.message,
-        rawContent: rawText
-      };
+      return { success: false, error: 'Parse failed: ' + e.message };
     }
   };
 
   /**
-   * Attempt to repair truncated JSON.
+   * Repair truncated JSON.
    */
   AIEditor.prototype._repairTruncatedJson = function (jsonStr) {
-    console.log('[Claude] Attempting JSON repair...');
-
     var lastBrace = jsonStr.lastIndexOf('}');
     if (lastBrace === -1) return jsonStr;
 
     var truncated = jsonStr.substring(0, lastBrace + 1);
-
     var openBrackets = 0, openBraces = 0;
     for (var i = 0; i < truncated.length; i++) {
       if (truncated[i] === '[') openBrackets++;
@@ -388,18 +424,7 @@ var AIEditor = (function () {
     for (var b = 0; b < openBrackets; b++) suffix += ']';
     for (var c = 0; c < openBraces; c++) suffix += '}';
 
-    var repaired = truncated + suffix;
-    console.log('[Claude] Repaired JSON (added', suffix.length, 'closing chars)');
-    return repaired;
-  };
-
-  /**
-   * Format seconds into MM:SS display.
-   */
-  AIEditor.prototype._formatTime = function (seconds) {
-    var mins = Math.floor(seconds / 60);
-    var secs = Math.floor(seconds % 60);
-    return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
+    return truncated + suffix;
   };
 
   return AIEditor;
