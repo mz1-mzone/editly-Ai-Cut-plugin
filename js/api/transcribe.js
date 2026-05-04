@@ -153,7 +153,7 @@ var TranscriptionPipeline = (function () {
       console.log('[ElevenLabs] ' + actualWords.length + ' actual words after filtering');
 
       // ---- FILLER DETECTION ----
-      // Focused on: AAAA sounds + breathing
+      // Focused on: AAAA sounds + breathing + BTS cues
       var FILLER_PATTERNS = [
         // "AAAA" type sounds — all spellings ElevenLabs might use
         'a', 'aa', 'aaa', 'aaaa', 'aaaaa',
@@ -166,22 +166,68 @@ var TranscriptionPipeline = (function () {
         'hm', 'hmm', 'hmmm', 'hmmmm',
         'mm', 'mmm', 'mmmm',
         'uh huh', 'uh-huh', 'mhm', 'mhmm',
-        // Arabic
-        'آآآ', 'اممم', 'هممم', 'اه', 'آه'
+        // Arabic fillers
+        'آآآ', 'اممم', 'هممم', 'اه', 'آه',
+        // BTS: Single-word director cues
+        'action', 'cut', 'rolling', 'speed', 'marker', 'slate',
+        'clap', 'take', 'reset', 'again', 'go', 'ready', 'ok', 'okay',
+        // BTS: Arabic false starts / director cues
+        'لا', 'خلاص', 'وقف', 'يلا', 'بس', 'طيب', 'تمام', 'اوكي',
+        // Countdown numbers (standalone)
+        'one', 'two', 'three', 'four', 'five',
+        'واحد', 'اثنين', 'ثلاثة', 'أربعة', 'خمسة'
+      ];
+
+      // BTS: Multi-word patterns (checked against adjacent words)
+      var BTS_PHRASES = [
+        'one two three', 'three two one',
+        'one two', 'two one', 'three two',
+        'two three', 'one two three four', 'ready go',
+        'واحد اثنين ثلاثة', 'ثلاثة اثنين واحد'
       ];
 
       // Catch ANY repeated vowel/nasal sound (2+ repeats): aa, oo, ee, mm, hh
       var REPEATED_SOUND_REGEX = /^([aeiouhm])\1{1,}$/i;
 
+      // First pass: detect BTS phrases in adjacent words
+      var btsRanges = [];
+      for (var p = 0; p < actualWords.length; p++) {
+        for (var phraseLen = 4; phraseLen >= 2; phraseLen--) {
+          if (p + phraseLen > actualWords.length) continue;
+          var phraseWords = [];
+          for (var pw = 0; pw < phraseLen; pw++) {
+            phraseWords.push((actualWords[p + pw].text || '').toLowerCase().replace(/[.,!?؟،;:'"]/g, '').trim());
+          }
+          var phrase = phraseWords.join(' ');
+          var isPhrase = false;
+          for (var bp = 0; bp < BTS_PHRASES.length; bp++) {
+            if (phrase === BTS_PHRASES[bp]) { isPhrase = true; break; }
+          }
+          if (isPhrase) {
+            for (var m = 0; m < phraseLen; m++) {
+              actualWords[p + m]._isFiller = true;
+            }
+            btsRanges.push(phrase);
+            p += phraseLen - 1;
+            break;
+          }
+        }
+      }
+
+      if (btsRanges.length > 0) {
+        console.log('[ElevenLabs] Detected BTS phrases: ' + btsRanges.join(', '));
+      }
+
       var fillerCount = 0;
       actualWords.forEach(function (w) {
+        if (w._isFiller) { fillerCount++; return; } // already marked by BTS phrase pass
         if (!w.text) return;
         var lower = w.text.toLowerCase().replace(/[.,!?؟،;:'"]/g, '').trim();
         if (!lower) return;
 
         var isFiller = false;
 
-        // 1. Known filler sounds
+        // 1. Known filler sounds + BTS cues
         if (FILLER_PATTERNS.indexOf(lower) >= 0) {
           isFiller = true;
         }

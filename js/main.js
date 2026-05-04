@@ -28,12 +28,18 @@
 
   // ==================== DOM REFERENCES ====================
   var els = {
+    // Pages
+    pageSetup: document.getElementById('pageSetup'),
+    pageProcess: document.getElementById('pageProcess'),
+    btnBack: document.getElementById('btnBack'),
+    // Setup page
     btnRefresh: document.getElementById('btnRefresh'),
     clipInfoContent: document.getElementById('clipInfoContent'),
     promptInput: document.getElementById('promptInput'),
     durationSlider: document.getElementById('durationSlider'),
     durationDisplay: document.getElementById('durationDisplay'),
     btnCreateCut: document.getElementById('btnCreateCut'),
+    // Process page
     progressSection: document.getElementById('progressSection'),
     progressSpinner: document.getElementById('progressSpinner'),
     // Transcript review
@@ -48,6 +54,10 @@
     statSaved: document.getElementById('statSaved'),
     btnApplyCuts: document.getElementById('btnApplyCuts'),
     btnUndo: document.getElementById('btnUndo'),
+    // Ripple delete
+    rippleSection: document.getElementById('rippleSection'),
+    btnRippleDelete: document.getElementById('btnRippleDelete'),
+    btnUndoFinal: document.getElementById('btnUndoFinal'),
     // Settings
     btnSettings: document.getElementById('btnSettings'),
     settingsOverlay: document.getElementById('settingsOverlay'),
@@ -64,6 +74,25 @@
   // Current decisions state (user-editable)
   var currentDecisions = null;
   var currentSearchQuery = '';
+
+  // ==================== PAGE NAVIGATION ====================
+
+  function showPage(page) {
+    els.pageSetup.classList.remove('active');
+    els.pageProcess.classList.remove('active');
+    if (page === 'setup') {
+      els.pageSetup.classList.add('active');
+      els.pageSetup.style.display = '';
+      els.pageProcess.style.display = 'none';
+    } else {
+      els.pageProcess.classList.add('active');
+      els.pageProcess.style.display = '';
+      els.pageSetup.style.display = 'none';
+    }
+  }
+
+  // Start on setup page
+  showPage('setup');
 
   // ==================== SETTINGS ====================
 
@@ -327,6 +356,8 @@
     }
     els.progressSection.classList.remove('active');
     els.transcriptSection.classList.remove('active');
+    els.rippleSection.classList.remove('active');
+    showPage('setup');
   }
 
   // ==================== MAIN PIPELINE ====================
@@ -353,6 +384,7 @@
     isProcessing = true;
     els.btnCreateCut.disabled = true;
     resetProgress();
+    showPage('process');
     els.progressSection.classList.add('active');
 
     var tempAudioPath = '';
@@ -596,7 +628,9 @@
       .then(function (disableResult) {
         var count = disableResult ? (disableResult.disabledCount || 0) : 0;
         setStepState(4, 'completed', 'Done! ' + count + ' clips disabled');
-        showToast('Cuts applied! ' + count + ' segments disabled.', 'success');
+        showToast('Cuts applied! Preview the result, then finalize.', 'success');
+        // Show ripple delete section
+        els.rippleSection.classList.add('active');
       })
       .catch(function (err) {
         setStepState(4, 'error', err.message);
@@ -620,6 +654,34 @@
         refreshClipInfo();
       })
       .catch(function (err) { showToast('Undo failed: ' + err.message, 'error'); });
+  }
+
+  // ==================== RIPPLE DELETE ====================
+
+  function rippleDelete() {
+    if (isProcessing) return;
+    isProcessing = true;
+    els.btnRippleDelete.disabled = true;
+    els.btnRippleDelete.textContent = '⏳ Deleting...';
+
+    evalScript('approveChanges()')
+      .then(function (result) {
+        if (result.error) {
+          showToast('Ripple delete error: ' + result.error, 'error');
+          return;
+        }
+        stateManager.clearState();
+        els.rippleSection.classList.remove('active');
+        els.transcriptSection.classList.remove('active');
+        showToast('✓ Ripple deleted ' + (result.removedCount || 0) + ' clips. Timeline is clean!', 'success');
+        refreshClipInfo();
+      })
+      .catch(function (err) { showToast('Ripple delete failed: ' + err.message, 'error'); })
+      .then(function () {
+        isProcessing = false;
+        els.btnRippleDelete.disabled = false;
+        els.btnRippleDelete.textContent = '🗑 Ripple Delete — Irreversible!';
+      });
   }
 
   // ==================== UI HELPERS ====================
@@ -656,6 +718,11 @@
   els.btnCreateCut.addEventListener('click', createCut);
   els.btnApplyCuts.addEventListener('click', applyCuts);
   els.btnUndo.addEventListener('click', undoEdit);
+  els.btnUndoFinal.addEventListener('click', undoEdit);
+  els.btnRippleDelete.addEventListener('click', rippleDelete);
+  els.btnBack.addEventListener('click', function () {
+    if (!isProcessing) showPage('setup');
+  });
   els.btnSettings.addEventListener('click', openSettings);
   els.btnSettingsClose.addEventListener('click', closeSettings);
   els.btnSaveSettings.addEventListener('click', saveSettings);

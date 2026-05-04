@@ -269,8 +269,9 @@ var AIEditor = (function () {
       '2. ' + aggression + '\n' +
       '3. If the speaker repeats the same idea, keep only the better take.\n' +
       '4. Cut tangents, false starts, and weak sections.\n' +
-      '5. Preserve the narrative arc — beginning, middle, and end must make sense.\n' +
-      '6. Never cut mid-sentence. Always keep complete thoughts.\n\n' +
+      '5. ALWAYS REMOVE behind-the-scenes content: countdowns (one two three, three two one), director cues (action, cut, rolling), slate claps, false starts before retakes, "لا" when used as a restart, and any non-story production chatter.\n' +
+      '6. Preserve the narrative arc — beginning, middle, and end must make sense.\n' +
+      '7. Never cut mid-sentence. Always keep complete thoughts.\n\n' +
       'DURATION TARGET:\n' +
       '- This section has ' + chunkDuration.toFixed(0) + 's of speech.\n' +
       '- You should keep approximately ' + chunkKeepTarget + 's from this section.\n' +

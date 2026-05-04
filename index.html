@@ -20,8 +20,8 @@
       <button class="btn-settings" id="btnSettings" title="Settings">⚙</button>
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content">
+    <!-- ==================== PAGE 1: SETUP ==================== -->
+    <div class="main-content page" id="pageSetup">
 
       <!-- Clip Info Card -->
       <div class="card" id="clipInfoCard">
@@ -53,7 +53,6 @@
       <div class="card">
         <div class="card-header">
           <span class="card-title">Target Duration</span>
-          <span class="card-badge waiting">Reference Only</span>
         </div>
         <div class="duration-control">
           <div class="duration-header">
@@ -74,8 +73,16 @@
         ✂ Create a Cut
       </button>
 
+    </div>
+
+    <!-- ==================== PAGE 2: PROCESSING + REVIEW ==================== -->
+    <div class="main-content page" id="pageProcess" style="display:none;">
+
+      <!-- Back Button -->
+      <button class="btn-back" id="btnBack">← Back to Setup</button>
+
       <!-- Progress Section -->
-      <div class="card progress-section" id="progressSection">
+      <div class="card progress-section active" id="progressSection">
         <div class="card-header">
           <span class="card-title">Processing</span>
           <span class="spinner" id="progressSpinner"></span>
@@ -156,17 +163,35 @@
 
         <!-- Action buttons -->
         <div class="action-buttons">
-          <button class="btn-approve" id="btnApplyCuts">✂ Apply Cuts</button>
+          <button class="btn-approve" id="btnApplyCuts">✂ Apply Cuts (Disable)</button>
           <button class="btn-undo" id="btnUndo">↩ Undo All</button>
         </div>
       </div>
 
+      <!-- Ripple Delete Section (shown after Apply) -->
+      <div class="card ripple-section" id="rippleSection">
+        <div class="card-header">
+          <span class="card-title">Finalize Edit</span>
+          <span class="card-badge ready">✓ Cuts Applied</span>
+        </div>
+        <div class="ripple-info">
+          <p>Cuts have been applied — removed segments are <strong>disabled</strong> on the timeline.</p>
+          <p>Preview the result. If you're happy, ripple-delete to close the gaps.</p>
+        </div>
+        <div class="action-buttons">
+          <button class="btn-ripple-delete" id="btnRippleDelete">🗑 Ripple Delete — Irreversible!</button>
+          <button class="btn-undo" id="btnUndoFinal">↩ Undo All</button>
+        </div>
+        <div class="ripple-warning">
+          ⚠ Ripple Delete permanently removes disabled clips and closes gaps. This cannot be undone.
+        </div>
+      </div>
 
     </div>
 
     <!-- Footer -->
     <div class="footer">
-      <span class="footer-text">Editly AI Cut v1.0</span>
+      <span class="footer-text">Editly AI Cut v1.2</span>
       <div class="footer-status">
         <span class="status-dot" id="statusDot"></span>
         <span id="statusText">Disconnected</span>

@@ -277,6 +277,35 @@ body {
 .footer-text { font-size: 10px; color: var(--text-muted); }
 .footer-status { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); }
 
+/* Pages */
+.page { display: none; }
+.page.active { display: block; }
+
+/* Back Button */
+.btn-back {
+  background: none; border: none; color: var(--text-secondary); cursor: pointer;
+  font-size: 12px; padding: 6px 0; margin-bottom: 8px; transition: color var(--transition-fast);
+}
+.btn-back:hover { color: var(--text-primary); }
+
+/* Ripple Delete Section */
+.ripple-section { display: none; }
+.ripple-section.active { display: block; animation: slideUp 0.4s var(--ease-out); }
+.ripple-info { padding: 8px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+.ripple-info p { margin-bottom: 6px; }
+.btn-ripple-delete {
+  width: 100%; padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px;
+  font-weight: 600; cursor: pointer; border: 2px solid var(--error);
+  background: rgba(248,113,113,0.1); color: var(--error);
+  transition: all var(--transition-fast);
+}
+.btn-ripple-delete:hover { background: rgba(248,113,113,0.25); }
+.ripple-warning {
+  margin-top: 10px; padding: 8px 12px; border-radius: var(--radius-sm);
+  background: rgba(248,113,113,0.08); color: var(--warning);
+  font-size: 11px; text-align: center; border: 1px solid rgba(248,113,113,0.2);
+}
+
 /* Transcript Review */
 .transcript-section { display: none; }
 .transcript-section.active { display: block; animation: slideUp 0.4s var(--ease-out); }
