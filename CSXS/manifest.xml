@@ -54,6 +54,10 @@
             </MaxSize>
           </Geometry>
           <Icons>
+            <Icon Type="Normal">./icons/icon-light.png</Icon>
+            <Icon Type="RollOver">./icons/icon-light.png</Icon>
+            <Icon Type="DarkNormal">./icons/icon-dark.png</Icon>
+            <Icon Type="DarkRollOver">./icons/icon-dark.png</Icon>
           </Icons>
         </UI>
       </DispatchInfo>
