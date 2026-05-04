@@ -236,6 +236,21 @@ var AIEditor = (function () {
     var chunkEnd = chunk[chunk.length - 1].end;
     var chunkDuration = chunkEnd - chunkStart;
 
+    // Calculate per-chunk time budget
+    var chunkBudget = Math.round((targetDuration / totalChunks));
+    var cutRatio = 1 - (targetDuration / totalSourceDuration);
+    var chunkKeepTarget = Math.round(chunkDuration * (1 - Math.max(0, cutRatio)));
+
+    // Aggressiveness level
+    var aggression = '';
+    if (cutRatio > 0.6) {
+      aggression = 'AGGRESSIVE CUTTING NEEDED: You must cut heavily — keep only the strongest, most essential moments. Remove anything that is not critical to the core story.';
+    } else if (cutRatio > 0.3) {
+      aggression = 'MODERATE CUTTING: Remove weak sections, repetitions, and tangents. Keep the core narrative tight.';
+    } else {
+      aggression = 'LIGHT EDITING: Mostly keep content. Only remove clear repetitions, false starts, or off-topic tangents.';
+    }
+
     // Build transcript text for this chunk
     var transcriptText = '';
     chunk.forEach(function (seg) {
@@ -251,9 +266,16 @@ var AIEditor = (function () {
       'CONTEXT: All filler sounds (آآآ, um, hmm), breathing, silence, noise, and stuttering have ALREADY been removed. You see only clean speech.\n\n' +
       'YOUR JOB:\n' +
       '1. Read the transcript and understand the story.\n' +
-      '2. If the speaker repeats the same idea, keep only the better take.\n' +
-      '3. Cut tangents, false starts, and weak sections.\n' +
-      '4. When in doubt, KEEP the segment.\n\n' +
+      '2. ' + aggression + '\n' +
+      '3. If the speaker repeats the same idea, keep only the better take.\n' +
+      '4. Cut tangents, false starts, and weak sections.\n' +
+      '5. Preserve the narrative arc — beginning, middle, and end must make sense.\n' +
+      '6. Never cut mid-sentence. Always keep complete thoughts.\n\n' +
+      'DURATION TARGET:\n' +
+      '- This section has ' + chunkDuration.toFixed(0) + 's of speech.\n' +
+      '- You should keep approximately ' + chunkKeepTarget + 's from this section.\n' +
+      '- The total "keep" duration of your segments should be close to ' + chunkKeepTarget + 's.\n' +
+      '- If you cannot reach the target without breaking the story, keep more — story integrity > duration.\n\n' +
       'RULES:\n' +
       '1. Use EXACT timestamps from the transcript — do not invent times.\n' +
       '2. Segments must be chronological with NO gaps.\n' +
@@ -269,11 +291,14 @@ var AIEditor = (function () {
       'STORY PROMPT: ' + userPrompt + '\n\n' +
       chunkInfo +
       (prevSummary ? prevSummary + '\n\n' : '') +
-      'DURATION: ~' + Math.round(targetDuration) + 's target for the FULL video (this is chunk ' + (chunkIdx + 1) + ').\n' +
+      'TARGET DURATION: ~' + Math.round(targetDuration) + 's for the FULL video. ' +
+      'This chunk should keep ~' + chunkKeepTarget + 's out of ' + chunkDuration.toFixed(0) + 's.\n' +
       'SOURCE: ' + totalSourceDuration.toFixed(1) + 's total, ' + autoRemovedCount + ' junk blocks already removed.\n' +
       'THIS SECTION: ' + chunkDuration.toFixed(1) + 's of clean speech (' + chunk.length + ' segments)\n' +
       'TIMELINE: ' + chunkStart.toFixed(2) + 's to ' + chunkEnd.toFixed(2) + 's\n\n' +
       'CLEAN SPEECH TRANSCRIPT:\n' + transcriptText;
+
+    console.log('[Claude] Chunk ' + (chunkIdx + 1) + ' budget: keep ~' + chunkKeepTarget + 's / ' + chunkDuration.toFixed(0) + 's (' + aggression.split(':')[0] + ')');
 
     var body = {
       model: self.model,
