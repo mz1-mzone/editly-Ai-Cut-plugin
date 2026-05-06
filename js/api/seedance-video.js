@@ -149,15 +149,19 @@ var SeedanceVideo = (function () {
   function submitTask(opts) {
     var onProgress = opts.onProgress || function () {};
 
-    // Step 1: Upload files to get public URLs
-    // NOTE: We do NOT send the AI-generated preview as reference_image
-    // because Seedance blocks images containing real people.
-    // The AI preview is only for user approval in the UI.
+    // Step 1: Upload all files to get public URLs
     var uploadPromises = [];
 
-    // Upload extra user-provided reference images (if any)
+    // Upload AI-generated reference image
+    onProgress({ detail: 'Uploading reference image...' });
+    uploadPromises.push(
+      uploadBase64(opts.referenceImageBase64, 'png').then(function (url) {
+        return { type: 'image', url: url, role: 'reference_image' };
+      })
+    );
+
+    // Upload extra user images
     if (opts.extraImagePaths && opts.extraImagePaths.length > 0) {
-      onProgress({ detail: 'Uploading reference images...' });
       for (var i = 0; i < opts.extraImagePaths.length; i++) {
         (function (imgPath) {
           uploadPromises.push(
@@ -170,7 +174,7 @@ var SeedanceVideo = (function () {
     }
 
     // Upload source video
-    onProgress({ detail: 'Uploading video to Seedance...' });
+    onProgress({ detail: 'Uploading video...' });
     uploadPromises.push(
       uploadFile(opts.videoFilePath).then(function (url) {
         return { type: 'video', url: url, role: 'reference_video' };
@@ -306,8 +310,13 @@ var SeedanceVideo = (function () {
               }
 
               if (status === 'succeeded' || status === 'completed' || status === 'done') {
-                // Extract video URL from content array or direct field
+                // Log the full response to understand the structure
+                console.log('[Seedance] COMPLETED response: ' + JSON.stringify(resp).substring(0, 1500));
+
+                // Deep-search for video URL in all known structures
                 var videoUrl = null;
+
+                // 1. resp.content[] array (official spec)
                 if (resp.content && Array.isArray(resp.content)) {
                   for (var i = 0; i < resp.content.length; i++) {
                     var item = resp.content[i];
@@ -317,11 +326,57 @@ var SeedanceVideo = (function () {
                     }
                   }
                 }
+
+                // 2. resp.video_url (direct)
                 if (!videoUrl && resp.video_url) {
                   videoUrl = typeof resp.video_url === 'string' ? resp.video_url : resp.video_url.url;
                 }
+
+                // 3. resp.output.video_url
                 if (!videoUrl && resp.output && resp.output.video_url) {
-                  videoUrl = resp.output.video_url;
+                  videoUrl = typeof resp.output.video_url === 'string' ? resp.output.video_url : resp.output.video_url.url;
+                }
+
+                // 4. resp.data.video_url or resp.data.output
+                if (!videoUrl && resp.data) {
+                  if (resp.data.video_url) {
+                    videoUrl = typeof resp.data.video_url === 'string' ? resp.data.video_url : resp.data.video_url.url;
+                  } else if (resp.data.output && resp.data.output.video_url) {
+                    videoUrl = resp.data.output.video_url;
+                  }
+                }
+
+                // 5. resp.choices[0] (OpenAI-compatible)
+                if (!videoUrl && resp.choices && resp.choices[0]) {
+                  var choice = resp.choices[0];
+                  if (choice.video_url) {
+                    videoUrl = typeof choice.video_url === 'string' ? choice.video_url : choice.video_url.url;
+                  } else if (choice.message && choice.message.content) {
+                    // Might be in message content array
+                    var msgContent = choice.message.content;
+                    if (Array.isArray(msgContent)) {
+                      for (var j = 0; j < msgContent.length; j++) {
+                        if (msgContent[j].video_url) {
+                          videoUrl = typeof msgContent[j].video_url === 'string' ? msgContent[j].video_url : msgContent[j].video_url.url;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+
+                // 6. Recursive search for any key containing 'video' and 'url'
+                if (!videoUrl) {
+                  var respStr = JSON.stringify(resp);
+                  var urlMatch = respStr.match(/"(?:video_url|video_download_url|download_url)"\s*:\s*"(https?:\/\/[^"]+)"/);
+                  if (urlMatch) {
+                    videoUrl = urlMatch[1];
+                    console.log('[Seedance] Found video URL via regex: ' + videoUrl);
+                  }
+                }
+
+                if (!videoUrl) {
+                  console.error('[Seedance] Could not find video URL in response. Full response logged above.');
                 }
 
                 resolve({ success: true, videoUrl: videoUrl });
