@@ -231,6 +231,9 @@ var VFXController = (function () {
           })
           .then(function (importResult) {
             console.log('[VFX] Import result:', JSON.stringify(importResult));
+            if (importResult && importResult.debug) {
+              console.log('[VFX] Import debug:', importResult.debug.join(' | '));
+            }
             if (importResult && importResult.error) {
               throw new Error('Import failed: ' + importResult.error);
             }
