@@ -148,6 +148,7 @@ var VFXController = (function () {
       model: opts.model || 'kling-v3',
       ratio: opts.ratio || '16:9',
       directGeneration: opts.directGeneration || false,
+      generateAudio: opts.generateAudio || false,
       extraImagePaths: opts.extraImagePaths || [],
       // API keys
       klingAccessKey: opts.klingAccessKey,
@@ -204,8 +205,9 @@ var VFXController = (function () {
             referenceImageBase64: task.imageBase64,
             extraImagePaths: task.extraImagePaths || [],
             videoFilePath: null, // No source video
-            duration: Math.max(4, Math.min(task.duration, 15)),
+            duration: 15,
             ratio: task.ratio || '16:9',
+            generateAudio: task.generateAudio,
             onProgress: function (p) {
               updateTask({ progress: Math.min(25, task.progress + 2) });
               if (p.detail) console.log('[VFX][Seedance Direct] ' + p.detail);

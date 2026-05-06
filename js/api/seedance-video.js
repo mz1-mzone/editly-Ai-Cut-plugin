@@ -230,7 +230,7 @@ var SeedanceVideo = (function () {
           content: content,
           duration: duration,
           ratio: ratio,
-          generate_audio: false,
+          generate_audio: opts.generateAudio || false,
           watermark: false
         };
 

@@ -1046,56 +1046,65 @@
     if (!prompt) { showToast('Enter a prompt', 'error'); return; }
     if (!settings.seedance_api_key) { showToast('Configure Seedance API Key in Settings', 'error'); return; }
 
-    // Use clip data if available, otherwise defaults
-    var dur = (vfxClipData && vfxClipData.duration) ? vfxClipData.duration : 5;
-    var splits = SeedanceVideo.calculateSplits(dur, 15);
+    // Get sequence dimensions for correct aspect ratio
+    evalScript('getSequenceInfo()')
+    .then(function (seqInfo) {
+      var fw = 1920, fh = 1080;
+      if (seqInfo && seqInfo.frameSizeHorizontal) {
+        fw = parseInt(seqInfo.frameSizeHorizontal, 10) || 1920;
+        fh = parseInt(seqInfo.frameSizeVertical, 10) || 1080;
+      } else if (vfxClipData) {
+        fw = vfxClipData.frameWidth || 1920;
+        fh = vfxClipData.frameHeight || 1080;
+      }
+      var ratio = SeedanceVideo.mapRatio(fw, fh);
 
-    var fw = (vfxClipData && vfxClipData.frameWidth) ? vfxClipData.frameWidth : 1920;
-    var fh = (vfxClipData && vfxClipData.frameHeight) ? vfxClipData.frameHeight : 1080;
-    var ratio = SeedanceVideo.mapRatio(fw, fh);
+      // Always 15s for direct generation
+      var dur = 15;
+      var splits = [{ start: 0, end: dur, duration: dur, index: 0 }];
 
-    // Collect reference image paths
-    var extraImagePaths = [];
-    for (var j = 0; j < vfxUploadedImages.length; j++) {
-      if (vfxUploadedImages[j].path) extraImagePaths.push(vfxUploadedImages[j].path);
-    }
+      // Collect reference image paths
+      var extraImagePaths = [];
+      for (var j = 0; j < vfxUploadedImages.length; j++) {
+        if (vfxUploadedImages[j].path) extraImagePaths.push(vfxUploadedImages[j].path);
+      }
 
-    var clipName = (vfxClipData && vfxClipData.clipName) ? vfxClipData.clipName : 'Seedance_Direct';
+      var clipName = (vfxClipData && vfxClipData.clipName) ? vfxClipData.clipName : 'Seedance_Direct';
 
-    // Create tasks — no clip extraction needed
-    for (var i = 0; i < splits.length; i++) {
+      // Create task — 1 × 15s, no clip extraction
       VFXController.createTask({
         clipName: clipName,
-        chunkIndex: i,
-        totalChunks: splits.length,
-        timelineStart: vfxClipData ? (vfxClipData.startTime + splits[i].start) : 0,
-        startTime: vfxClipData ? (vfxClipData.inPoint + splits[i].start) : 0,
-        endTime: vfxClipData ? (vfxClipData.inPoint + splits[i].end) : splits[i].duration,
-        duration: splits[i].duration,
+        chunkIndex: 0,
+        totalChunks: 1,
+        timelineStart: vfxClipData ? vfxClipData.startTime : 0,
+        startTime: 0,
+        endTime: dur,
+        duration: dur,
         prompt: prompt,
         imageBase64: null,
-        mediaPath: vfxClipData ? vfxClipData.mediaPath : null,
+        mediaPath: null,
         model: 'seedance-2',
         ratio: ratio,
         extraImagePaths: extraImagePaths,
-        directGeneration: true, // Skip video extraction
+        directGeneration: true,
+        generateAudio: true,
         seedanceApiKey: settings.seedance_api_key
       });
-    }
 
-    showVFXPage('queue');
-    renderVFXQueue();
-    els.vfxBtnViewQueue.style.display = 'block';
-    showToast(splits.length + ' Seedance task(s) queued — generating directly', 'success');
-
-    VFXController.processQueue(function (task) {
+      showVFXPage('queue');
       renderVFXQueue();
-      if (task.status === 'done') {
-        showToast(task.clipName + ' chunk ' + (task.chunkIndex + 1) + ' complete!', 'success');
-      } else if (task.status === 'error') {
-        showToast('Task error: ' + task.error, 'error');
-      }
-    }, evalScript);
+      els.vfxBtnViewQueue.style.display = 'block';
+      showToast('Seedance 15s task queued — ' + ratio + ' @ 1080p with audio', 'success');
+
+      VFXController.processQueue(function (task) {
+        renderVFXQueue();
+        if (task.status === 'done') {
+          showToast(task.clipName + ' complete!', 'success');
+        } else if (task.status === 'error') {
+          showToast('Task error: ' + task.error, 'error');
+        }
+      }, evalScript);
+    });
   }
 
   function renderVFXQueue() {
