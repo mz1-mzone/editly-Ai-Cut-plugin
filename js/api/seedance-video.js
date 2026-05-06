@@ -218,7 +218,7 @@ var SeedanceVideo = (function () {
           }
         }
 
-        var duration = Math.max(MIN_DURATION, Math.min(opts.duration || 5, MAX_DURATION));
+        var duration = Math.round(Math.max(MIN_DURATION, Math.min(opts.duration || 5, MAX_DURATION)));
         var ratio = opts.ratio || '16:9';
 
         var body = {
@@ -226,8 +226,8 @@ var SeedanceVideo = (function () {
           content: content,
           duration: duration,
           ratio: ratio,
-          resolution: '1080p',
-          generate_audio: false
+          generate_audio: false,
+          watermark: false
         };
 
         console.log('[Seedance] Submitting task: duration=' + duration + 's, ratio=' + ratio);
