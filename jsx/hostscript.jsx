@@ -627,6 +627,28 @@ function approveChanges() {
 }
 
 
+// ========== VFX: PROJECT FOLDER ==========
+
+/**
+ * Get the folder path of the current Premiere project file.
+ * VFX outputs will be saved here in an "Editly_VFX" subfolder.
+ */
+function getProjectFolder() {
+  try {
+    var projectPath = app.project.path;
+    if (!projectPath || projectPath === '') {
+      return JSON.stringify({ error: 'Project not saved yet' });
+    }
+    // Extract directory from full path
+    var lastSlash = projectPath.lastIndexOf('/');
+    if (lastSlash < 0) lastSlash = projectPath.lastIndexOf('\\');
+    var folder = projectPath.substring(0, lastSlash);
+    return JSON.stringify({ success: true, folder: folder, projectPath: projectPath });
+  } catch (e) {
+    return JSON.stringify({ error: 'getProjectFolder failed: ' + e.message });
+  }
+}
+
 // ========== VFX: CLIP MEDIA INFO ==========
 
 /**
@@ -704,7 +726,7 @@ function importAndPlaceAbove(videoPath, startSeconds) {
       return JSON.stringify({ error: 'Failed to import video file' });
     }
 
-    // Find the imported item (should be the most recently added)
+    // Find the imported item (most recently added)
     var rootItem = app.project.rootItem;
     var importedItem = null;
     for (var i = rootItem.children.numItems - 1; i >= 0; i--) {
@@ -714,51 +736,119 @@ function importAndPlaceAbove(videoPath, startSeconds) {
         break;
       }
     }
-
-    if (!importedItem) {
-      // Fallback: get the last imported item
-      if (rootItem.children.numItems > 0) {
-        importedItem = rootItem.children[rootItem.children.numItems - 1];
-      }
+    if (!importedItem && rootItem.children.numItems > 0) {
+      importedItem = rootItem.children[rootItem.children.numItems - 1];
     }
-
     if (!importedItem) {
       return JSON.stringify({ error: 'Could not find imported item in project' });
     }
 
-    // Find the highest occupied video track, then place on track above it
     var videoTracks = seq.videoTracks;
-    var targetTrackIdx = 1; // Default to V2
+    var seqWidth = seq.frameSizeHorizontal;
+    var seqHeight = seq.frameSizeVertical;
 
-    // Find which track the selected clip is on
-    var selection = seq.getSelection();
-    if (selection && selection.length > 0) {
-      for (var t = 0; t < videoTracks.numTracks; t++) {
-        var track = videoTracks[t];
-        for (var c = 0; c < track.clips.numItems; c++) {
-          if (track.clips[c].name === selection[0].name) {
-            targetTrackIdx = t + 1; // Place on track above
-            break;
-          }
+    // Find the source clip's track by matching the startTime
+    var sourceTrackIdx = 0;
+    var insertTimeSec = startSeconds;
+    var insertTime = new Time();
+    insertTime.seconds = insertTimeSec;
+
+    // Try to find exact clip at this time position to get its track
+    for (var t = 0; t < videoTracks.numTracks; t++) {
+      var trk = videoTracks[t];
+      for (var c = 0; c < trk.clips.numItems; c++) {
+        var cl = trk.clips[c];
+        var clStart = cl.start ? cl.start.seconds : -1;
+        // If clip starts within 0.5s of our target, this is the source track
+        if (Math.abs(clStart - insertTimeSec) < 0.5) {
+          sourceTrackIdx = t;
+          break;
         }
       }
     }
 
-    // Ensure target track exists
-    if (targetTrackIdx >= videoTracks.numTracks) {
-      seq.addTracks(targetTrackIdx - videoTracks.numTracks + 1, 0, 0);
+    // Search for an empty track above the source track
+    var targetTrackIdx = -1;
+    for (var t = sourceTrackIdx + 1; t < videoTracks.numTracks; t++) {
+      var trk = videoTracks[t];
+      var hasConflict = false;
+
+      for (var c = 0; c < trk.clips.numItems; c++) {
+        var cl = trk.clips[c];
+        var clStart = cl.start ? cl.start.seconds : 0;
+        var clEnd = cl.end ? cl.end.seconds : 0;
+        // Check if any clip on this track overlaps our insert time range
+        // Our clip duration is unknown here, so check if insert point falls within existing clip
+        if (clEnd > insertTimeSec && clStart < (insertTimeSec + 60)) {
+          hasConflict = true;
+          break;
+        }
+      }
+
+      if (!hasConflict) {
+        targetTrackIdx = t;
+        break;
+      }
     }
 
-    // Insert the clip on the target track
-    var targetTrack = videoTracks[targetTrackIdx];
-    var insertTime = new Time();
-    insertTime.seconds = startSeconds;
+    // If no empty track found, create a new one at the top
+    if (targetTrackIdx < 0) {
+      targetTrackIdx = videoTracks.numTracks;
+      seq.addTracks(1, 0, 0);
+    }
 
-    targetTrack.insertClip(importedItem, insertTime);
+    // Place the clip using overwriteClip (won't shift other clips)
+    var targetTrack = videoTracks[targetTrackIdx];
+    targetTrack.overwriteClip(importedItem, insertTime);
+
+    // Scale-to-fit: after inserting, find the new clip and adjust scale
+    var placedClip = null;
+    for (var c = 0; c < targetTrack.clips.numItems; c++) {
+      var cl = targetTrack.clips[c];
+      var clStart = cl.start ? cl.start.seconds : -1;
+      if (Math.abs(clStart - insertTimeSec) < 0.5) {
+        placedClip = cl;
+        break;
+      }
+    }
+
+    if (placedClip) {
+      try {
+        // Get the generated video's intrinsic dimensions from project item
+        var mediaWidth = 0;
+        var mediaHeight = 0;
+        // Try to read from the clip's component params
+        var motionComponent = placedClip.components[1]; // Motion component
+        if (motionComponent) {
+          // Find Scale parameter
+          for (var p = 0; p < motionComponent.properties.numItems; p++) {
+            var prop = motionComponent.properties[p];
+            if (prop.displayName === 'Scale') {
+              // Calculate scale to fit sequence
+              // Kling outputs may differ from sequence resolution
+              // Default to 100% and let Premiere handle it
+              // If we know the source dimensions, calculate proper scale
+              prop.setValue(100, true);
+            }
+            // Set "Scale to Frame Size" via uniform scale
+            if (prop.displayName === 'Scale Width') {
+              prop.setValue(100, true);
+            }
+          }
+        }
+
+        // Use setScaleToFrameSize if available (PP 2020+)
+        if (placedClip.projectItem && placedClip.projectItem.setScaleToFrameSize) {
+          placedClip.projectItem.setScaleToFrameSize();
+        }
+      } catch (scaleErr) {
+        // Scale adjustment is best-effort, don't fail the whole operation
+      }
+    }
 
     return JSON.stringify({
       success: true,
-      message: 'VFX video placed on V' + (targetTrackIdx + 1),
+      message: 'VFX placed on V' + (targetTrackIdx + 1) + ' at ' + insertTimeSec.toFixed(2) + 's',
       trackIndex: targetTrackIdx
     });
   } catch (e) {

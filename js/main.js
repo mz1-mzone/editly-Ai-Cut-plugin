@@ -955,6 +955,9 @@
 
       // Action buttons
       var actionsHtml = '';
+      if (t.status === 'queued') {
+        actionsHtml += '<button class="queue-btn-cancel" data-cancel-id="' + t.id + '">Cancel</button>';
+      }
       if (t.status === 'error') {
         actionsHtml += '<button class="queue-btn-retry" data-retry-id="' + t.id + '">Retry</button>';
       }
@@ -994,6 +997,16 @@
       btn.addEventListener('click', function () {
         var taskId = this.getAttribute('data-folder-id');
         VFXController.showInFolder(taskId);
+      });
+    });
+
+    // Bind cancel buttons
+    els.vfxQueueList.querySelectorAll('.queue-btn-cancel').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var taskId = this.getAttribute('data-cancel-id');
+        VFXController.cancelTask(taskId);
+        renderVFXQueue();
+        showToast('Task cancelled', 'success');
       });
     });
   }

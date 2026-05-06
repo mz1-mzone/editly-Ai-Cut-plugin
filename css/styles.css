@@ -476,6 +476,12 @@ body {
   cursor: pointer; transition: all var(--transition-fast);
 }
 .queue-btn-retry:hover { border-color: var(--accent); color: var(--accent); }
+.queue-btn-cancel {
+  padding: 4px 8px; border-radius: var(--radius-sm); font-size: 10px;
+  border: 1px solid var(--border); background: none; color: var(--text-muted);
+  cursor: pointer; transition: all var(--transition-fast);
+}
+.queue-btn-cancel:hover { border-color: var(--text-secondary); color: var(--text-primary); }
 .queue-thumb {
   width: 36px; height: 36px; border-radius: 4px; object-fit: cover; flex-shrink: 0;
   border: 1px solid var(--border);

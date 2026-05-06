@@ -150,73 +150,90 @@ var VFXController = (function () {
    * Process a single task through the full Kling pipeline.
    */
   function processTask(task, onUpdate, evalScript) {
-    var tempDir = require('os').tmpdir() + '/editly_vfx';
-    try { require('fs').mkdirSync(tempDir, { recursive: true }); } catch (e) {}
+    var fs = require('fs');
 
     function updateTask(updates) {
       for (var key in updates) task[key] = updates[key];
       if (onUpdate) onUpdate(task);
     }
 
-    // Step 1: Extract video chunk
-    updateTask({ status: 'extracting', progress: 10 });
-    var chunkPath = tempDir + '/chunk_' + task.id + '.mp4';
+    // Step 0: Get project folder to save outputs next to the project file
+    updateTask({ status: 'extracting', progress: 5 });
 
-    return extractVideoChunk(task.mediaPath, task.startTime, task.duration, chunkPath)
-      .then(function () {
-        // Step 2: Submit to Kling (includes file upload to tmpfiles.org)
-        updateTask({ status: 'submitting', progress: 15 });
-        return KlingVideo.submitTask({
-          accessKey: task.klingAccessKey,
-          secretKey: task.klingSecretKey,
-          referenceImageBase64: task.imageBase64,
-          videoFilePath: chunkPath,
-          prompt: task.prompt,
-          duration: Math.max(3, Math.min(task.duration, 30)),
-          onProgress: function (p) {
-            updateTask({ progress: Math.min(25, task.progress + 2) });
-            if (p.detail) console.log('[VFX] ' + p.detail);
-          }
-        });
-      })
-      .then(function (submitResult) {
-        if (!submitResult.success) throw new Error(submitResult.error);
-        task.klingTaskId = submitResult.taskId;
-        console.log('[VFX] Task submitted, ID: ' + submitResult.taskId);
-
-        // Step 3: Poll until done
-        updateTask({ status: 'processing', progress: 30 });
-        return KlingVideo.pollTask(task.klingAccessKey, task.klingSecretKey, submitResult.taskId, function (pollData) {
-          var pct = 30 + Math.round((pollData.progress || 0) * 0.5);
-          updateTask({ progress: Math.min(pct, 80) });
-        });
-      })
-      .then(function (pollResult) {
-        if (!pollResult.success) throw new Error(pollResult.error || 'Generation failed');
-        if (!pollResult.videoUrl) throw new Error('No video URL returned from Kling');
-
-        // Step 4: Download video
-        updateTask({ status: 'downloading', progress: 85 });
-        var videoPath = tempDir + '/vfx_' + task.id + '.mp4';
-        task.videoPath = videoPath;
-
-        return KlingVideo.downloadVideo(pollResult.videoUrl, videoPath);
-      })
-      .then(function () {
-        // Step 5: Import into Premiere Pro
-        updateTask({ status: 'importing', progress: 95 });
-        console.log('[VFX] Importing video: ' + task.videoPath + ' at ' + task.startTime + 's');
-
-        var escapedPath = task.videoPath.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        var startSec = task.startTime;
-        return evalScript("importAndPlaceAbove('" + escapedPath + "', " + startSec + ")");
-      })
-      .then(function (importResult) {
-        console.log('[VFX] Import result:', JSON.stringify(importResult));
-        if (importResult && importResult.error) {
-          throw new Error('Import failed: ' + importResult.error);
+    return evalScript('getProjectFolder()')
+      .then(function (projResult) {
+        var outputDir;
+        if (projResult && projResult.success && projResult.folder) {
+          outputDir = projResult.folder + '/Editly_VFX';
+        } else {
+          // Fallback to temp dir if project not saved
+          outputDir = require('os').tmpdir() + '/editly_vfx';
         }
-        updateTask({ status: 'done', progress: 100 });
+        try { fs.mkdirSync(outputDir, { recursive: true }); } catch (e) {}
+        return outputDir;
+      })
+      .then(function (outputDir) {
+        // Step 1: Extract video chunk
+        updateTask({ status: 'extracting', progress: 10 });
+        var chunkPath = outputDir + '/chunk_' + task.id + '.mp4';
+
+        return extractVideoChunk(task.mediaPath, task.startTime, task.duration, chunkPath)
+          .then(function () {
+            // Step 2: Submit to Kling (includes file upload to tmpfiles.org)
+            updateTask({ status: 'submitting', progress: 15 });
+            return KlingVideo.submitTask({
+              accessKey: task.klingAccessKey,
+              secretKey: task.klingSecretKey,
+              referenceImageBase64: task.imageBase64,
+              videoFilePath: chunkPath,
+              prompt: task.prompt,
+              duration: Math.max(3, Math.min(task.duration, 30)),
+              onProgress: function (p) {
+                updateTask({ progress: Math.min(25, task.progress + 2) });
+                if (p.detail) console.log('[VFX] ' + p.detail);
+              }
+            });
+          })
+          .then(function (submitResult) {
+            if (!submitResult.success) throw new Error(submitResult.error);
+            task.klingTaskId = submitResult.taskId;
+            console.log('[VFX] Task submitted, ID: ' + submitResult.taskId);
+
+            // Step 3: Poll until done
+            updateTask({ status: 'processing', progress: 30 });
+            return KlingVideo.pollTask(task.klingAccessKey, task.klingSecretKey, submitResult.taskId, function (pollData) {
+              var pct = 30 + Math.round((pollData.progress || 0) * 0.5);
+              updateTask({ progress: Math.min(pct, 80) });
+            });
+          })
+          .then(function (pollResult) {
+            if (!pollResult.success) throw new Error(pollResult.error || 'Generation failed');
+            if (!pollResult.videoUrl) throw new Error('No video URL returned from Kling');
+
+            // Step 4: Download video to project folder
+            updateTask({ status: 'downloading', progress: 85 });
+            var safeName = (task.clipName || 'clip').replace(/[^a-zA-Z0-9_-]/g, '_');
+            var videoPath = outputDir + '/VFX_' + safeName + '_' + (task.chunkIndex + 1) + '.mp4';
+            task.videoPath = videoPath;
+
+            return KlingVideo.downloadVideo(pollResult.videoUrl, videoPath);
+          })
+          .then(function () {
+            // Step 5: Import into Premiere Pro
+            updateTask({ status: 'importing', progress: 95 });
+            console.log('[VFX] Importing video: ' + task.videoPath + ' at ' + task.startTime + 's');
+
+            var escapedPath = task.videoPath.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            var startSec = task.startTime;
+            return evalScript("importAndPlaceAbove('" + escapedPath + "', " + startSec + ")");
+          })
+          .then(function (importResult) {
+            console.log('[VFX] Import result:', JSON.stringify(importResult));
+            if (importResult && importResult.error) {
+              throw new Error('Import failed: ' + importResult.error);
+            }
+            updateTask({ status: 'done', progress: 100 });
+          });
       })
       .catch(function (err) {
         console.error('[VFX] Task error: ' + err.message);
@@ -291,6 +308,19 @@ var VFXController = (function () {
   }
 
   /**
+   * Cancel a queued task (only if not yet processing).
+   */
+  function cancelTask(taskId) {
+    for (var i = 0; i < queue.length; i++) {
+      if (queue[i].id === taskId && queue[i].status === 'queued') {
+        queue.splice(i, 1);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Open the folder containing a task's video file in Finder.
    */
   function showInFolder(taskId) {
@@ -316,6 +346,7 @@ var VFXController = (function () {
     getQueue: getQueue,
     clearDone: clearDone,
     retryTask: retryTask,
+    cancelTask: cancelTask,
     showInFolder: showInFolder,
     extractFrame: extractFrame,
     extractVideoChunk: extractVideoChunk
