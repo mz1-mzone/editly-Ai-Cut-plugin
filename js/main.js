@@ -979,8 +979,8 @@
     // Calculate splits based on model
     var splits;
     if (selectedModel === 'beeble') {
-      // Beeble: no duration limit — 1 task for the full clip
-      splits = [{ start: 0, end: dur, duration: dur, index: 0 }];
+      // Beeble: max 240 frames — at 30fps = 8s, at 24fps = 10s. Use 8s to be safe.
+      splits = KlingVideo.calculateSplits(dur, 8);
     } else if (selectedModel === 'seedance-2') {
       splits = SeedanceVideo.calculateSplits(dur, 15);
     } else {
