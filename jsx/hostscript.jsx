@@ -791,10 +791,17 @@ function importAndPlaceAbove(videoPath, startSeconds) {
       }
     }
 
-    // If no empty track found, create a new one at the top
+    // If no empty track found, try to add a new track or use the topmost one
     if (targetTrackIdx < 0) {
-      targetTrackIdx = videoTracks.numTracks;
-      seq.addTracks(1, 0, 0);
+      try {
+        // Try QE DOM to add track (works across more Premiere versions)
+        var qeSeq = qe.project.getActiveSequence();
+        qeSeq.addTracks(1, 0, 0);
+        targetTrackIdx = videoTracks.numTracks - 1;
+      } catch (addErr) {
+        // Fallback: just use the topmost existing track
+        targetTrackIdx = videoTracks.numTracks - 1;
+      }
     }
 
     // Place the clip using overwriteClip (won't shift other clips)
