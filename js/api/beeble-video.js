@@ -84,7 +84,7 @@ var BeebleVideo = (function () {
         var options = {
           hostname: parsed.hostname,
           port: 443,
-          path: parsed.path + (parsed.search || ''),
+          path: parsed.path,
           method: 'PUT',
           headers: {
             'Content-Type': contentType,
