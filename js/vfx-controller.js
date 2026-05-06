@@ -147,6 +147,7 @@ var VFXController = (function () {
       // Model selection
       model: opts.model || 'kling-v3',
       ratio: opts.ratio || '16:9',
+      directGeneration: opts.directGeneration || false,
       extraImagePaths: opts.extraImagePaths || [],
       // API keys
       klingAccessKey: opts.klingAccessKey,
@@ -194,6 +195,48 @@ var VFXController = (function () {
         return outputDir;
       })
       .then(function (outputDir) {
+        // Direct generation (Seedance without clip) — skip extraction
+        if (task.directGeneration) {
+          updateTask({ status: 'submitting', progress: 15 });
+          return SeedanceVideo.submitTask({
+            apiKey: task.seedanceApiKey,
+            prompt: task.prompt,
+            referenceImageBase64: task.imageBase64,
+            extraImagePaths: task.extraImagePaths || [],
+            videoFilePath: null, // No source video
+            duration: Math.max(4, Math.min(task.duration, 15)),
+            ratio: task.ratio || '16:9',
+            onProgress: function (p) {
+              updateTask({ progress: Math.min(25, task.progress + 2) });
+              if (p.detail) console.log('[VFX][Seedance Direct] ' + p.detail);
+            }
+          })
+          .then(function (submitResult) {
+            if (!submitResult.success) throw new Error(submitResult.error);
+            task.taskId = submitResult.taskId;
+            console.log('[VFX][Seedance Direct] Task submitted, ID: ' + submitResult.taskId);
+            updateTask({ status: 'processing', progress: 30 });
+            return SeedanceVideo.pollTask(task.seedanceApiKey, submitResult.taskId, function (pollData) {
+              var pct = 30 + Math.round((pollData.progress || 0) * 0.5);
+              updateTask({ progress: Math.min(pct, 80) });
+            });
+          })
+          .then(function (pollResult) {
+            if (!pollResult.success) throw new Error(pollResult.error || 'Generation failed');
+            if (!pollResult.videoUrl) throw new Error('No video URL returned from Seedance');
+            updateTask({ status: 'downloading', progress: 85 });
+            var safeName = (task.clipName || 'seedance').replace(/[^a-zA-Z0-9_-]/g, '_');
+            var timestamp = Date.now().toString(36);
+            var videoPath = outputDir + '/SD_' + safeName + '_' + (task.chunkIndex + 1) + '_' + timestamp + '.mp4';
+            task.videoPath = videoPath;
+            return KlingVideo.downloadVideo(pollResult.videoUrl, videoPath);
+          })
+          .then(function () {
+            updateTask({ status: 'done', progress: 100 });
+            console.log('[VFX][Seedance Direct] Video saved: ' + task.videoPath);
+          });
+        }
+
         // Step 1: Extract video chunk
         updateTask({ status: 'extracting', progress: 10 });
         var chunkPath = outputDir + '/chunk_' + task.id + '.mp4';

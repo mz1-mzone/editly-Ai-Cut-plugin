@@ -1042,17 +1042,16 @@
 
   // ==================== SEEDANCE DIRECT VIDEO GENERATION ====================
   function vfxDirectGenerate() {
-    if (!vfxClipData) { showToast('Select a clip first', 'error'); return; }
-
     var prompt = els.vfxPromptInput.value.trim();
     if (!prompt) { showToast('Enter a prompt', 'error'); return; }
     if (!settings.seedance_api_key) { showToast('Configure Seedance API Key in Settings', 'error'); return; }
 
-    var dur = vfxClipData.duration || 0;
+    // Use clip data if available, otherwise defaults
+    var dur = (vfxClipData && vfxClipData.duration) ? vfxClipData.duration : 5;
     var splits = SeedanceVideo.calculateSplits(dur, 15);
 
-    var fw = vfxClipData.frameWidth || 1920;
-    var fh = vfxClipData.frameHeight || 1080;
+    var fw = (vfxClipData && vfxClipData.frameWidth) ? vfxClipData.frameWidth : 1920;
+    var fh = (vfxClipData && vfxClipData.frameHeight) ? vfxClipData.frameHeight : 1080;
     var ratio = SeedanceVideo.mapRatio(fw, fh);
 
     // Collect reference image paths
@@ -1061,26 +1060,26 @@
       if (vfxUploadedImages[j].path) extraImagePaths.push(vfxUploadedImages[j].path);
     }
 
-    // Create tasks — no imageBase64 (no preview generated)
+    var clipName = (vfxClipData && vfxClipData.clipName) ? vfxClipData.clipName : 'Seedance_Direct';
+
+    // Create tasks — no clip extraction needed
     for (var i = 0; i < splits.length; i++) {
       VFXController.createTask({
-        clipName: vfxClipData.clipName,
+        clipName: clipName,
         chunkIndex: i,
         totalChunks: splits.length,
-        timelineStart: vfxClipData.startTime + splits[i].start,
-        startTime: vfxClipData.inPoint + splits[i].start,
-        endTime: vfxClipData.inPoint + splits[i].end,
+        timelineStart: vfxClipData ? (vfxClipData.startTime + splits[i].start) : 0,
+        startTime: vfxClipData ? (vfxClipData.inPoint + splits[i].start) : 0,
+        endTime: vfxClipData ? (vfxClipData.inPoint + splits[i].end) : splits[i].duration,
         duration: splits[i].duration,
         prompt: prompt,
-        imageBase64: null, // No preview — direct generation
-        mediaPath: vfxClipData.mediaPath,
+        imageBase64: null,
+        mediaPath: vfxClipData ? vfxClipData.mediaPath : null,
         model: 'seedance-2',
         ratio: ratio,
         extraImagePaths: extraImagePaths,
-        klingAccessKey: settings.kling_access_key,
-        klingSecretKey: settings.kling_secret_key,
-        seedanceApiKey: settings.seedance_api_key,
-        beebleApiKey: settings.beeble_api_key
+        directGeneration: true, // Skip video extraction
+        seedanceApiKey: settings.seedance_api_key
       });
     }
 

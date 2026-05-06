@@ -175,13 +175,15 @@ var SeedanceVideo = (function () {
       }
     }
 
-    // Upload source video
-    onProgress({ detail: 'Uploading video...' });
-    uploadPromises.push(
-      uploadFile(opts.videoFilePath).then(function (url) {
-        return { type: 'video', url: url, role: 'reference_video' };
-      })
-    );
+    // Upload source video (if available — skipped for direct generation)
+    if (opts.videoFilePath) {
+      onProgress({ detail: 'Uploading video...' });
+      uploadPromises.push(
+        uploadFile(opts.videoFilePath).then(function (url) {
+          return { type: 'video', url: url, role: 'reference_video' };
+        })
+      );
+    }
 
     return Promise.all(uploadPromises)
       .then(function (uploads) {
