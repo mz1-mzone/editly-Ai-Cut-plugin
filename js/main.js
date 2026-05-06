@@ -1181,12 +1181,11 @@
   }
 
   // Template buttons
-  els.templateGrid.querySelectorAll('.template-btn').forEach(function (btn) {
+  els.templateGrid.querySelectorAll('.template-pill').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var prompt = this.getAttribute('data-prompt');
       els.vfxPromptInput.value = prompt;
-      // Highlight selected template
-      els.templateGrid.querySelectorAll('.template-btn').forEach(function (b) { b.classList.remove('selected'); });
+      els.templateGrid.querySelectorAll('.template-pill').forEach(function (b) { b.classList.remove('selected'); });
       this.classList.add('selected');
       updateVFXGenerateButton();
     });

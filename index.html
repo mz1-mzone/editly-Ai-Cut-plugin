@@ -142,6 +142,17 @@
             <textarea class="form-textarea" id="vfxPromptInput"
               placeholder="Describe the VFX effect you want... e.g. 'Change the background to a futuristic cyberpunk city'"></textarea>
           </div>
+          <div class="template-strip" id="templateGrid">
+            <button class="template-pill" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to a futuristic cyberpunk cityscape with neon lights, rain reflections, and holographic signs. The subject must remain pixel-perfect unchanged.">🏙 Cyberpunk</button>
+            <button class="template-pill" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT move, resize, or alter the subject in any way. Add realistic fire and flame effects AROUND the subject with glowing embers and smoke. The subject must remain pixel-perfect unchanged.">🔥 Fire</button>
+            <button class="template-pill" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Apply cinematic Hollywood film grading with dramatic lighting, shallow depth of field, rich color grading, and film grain. The subject must remain pixel-perfect unchanged.">🎬 Cinematic</button>
+            <button class="template-pill" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Change the lighting to dramatic golden hour with warm tones, long shadows, and volumetric light rays. The subject must remain pixel-perfect unchanged.">💡 Golden</button>
+            <button class="template-pill" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Add heavy rain with wet reflections on the ground, water droplets on surfaces, and moody dark atmosphere. The subject must remain pixel-perfect unchanged.">🌧 Rain</button>
+            <button class="template-pill" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Add falling snow with a cold winter atmosphere, frost on surfaces, foggy breath, and cold blue tones. The subject must remain pixel-perfect unchanged.">❄ Snow</button>
+            <button class="template-pill" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to a beautiful ocean sunset with warm pink and orange sky colors and gentle water reflections. The subject must remain pixel-perfect unchanged.">🌅 Sunset</button>
+            <button class="template-pill" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to outer space with stars, colorful nebula, and cosmic dust particles. The subject must remain pixel-perfect unchanged.">🌌 Space</button>
+            <button class="template-pill" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to a vast golden desert landscape with sand dunes and heat haze. The subject must remain pixel-perfect unchanged.">🏜 Desert</button>
+          </div>
         </div>
 
         <!-- Model Selector + Image Upload -->
@@ -153,7 +164,6 @@
               <option value="seedance-2">Seedance 2.0</option>
             </select>
           </div>
-          <!-- Image upload (shown for Seedance) -->
           <div class="vfx-image-upload" id="vfxImageUpload" style="display:none;">
             <div class="card-header"><span class="card-title" style="font-size:11px;">Reference Images (optional)</span></div>
             <div class="vfx-dropzone" id="vfxDropzone">
@@ -161,40 +171,6 @@
               <input type="file" id="vfxFileInput" multiple accept="image/*" style="display:none;">
             </div>
             <div class="vfx-upload-thumbs" id="vfxUploadThumbs"></div>
-          </div>
-        </div>
-
-        <!-- Quick Templates -->
-        <div class="card">
-          <div class="card-header"><span class="card-title">Quick Templates</span></div>
-          <div class="template-grid" id="templateGrid">
-            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to a futuristic cyberpunk cityscape with neon lights, rain reflections, and holographic signs. The subject must remain pixel-perfect unchanged.">
-              <span class="template-icon">🏙</span><span class="template-label">Cyberpunk BG</span>
-            </button>
-            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT move, resize, or alter the subject in any way. Add realistic fire and flame effects AROUND the subject with glowing embers and smoke. The subject must remain pixel-perfect unchanged.">
-              <span class="template-icon">🔥</span><span class="template-label">Add Fire</span>
-            </button>
-            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Apply cinematic Hollywood film grading with dramatic lighting, shallow depth of field, rich color grading, and film grain. The subject must remain pixel-perfect unchanged.">
-              <span class="template-icon">🎬</span><span class="template-label">Cinematic</span>
-            </button>
-            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Change the lighting to dramatic golden hour with warm tones, long shadows, and volumetric light rays. The subject must remain pixel-perfect unchanged.">
-              <span class="template-icon">💡</span><span class="template-label">Golden Hour</span>
-            </button>
-            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Add heavy rain with wet reflections on the ground, water droplets on surfaces, and moody dark atmosphere. The subject must remain pixel-perfect unchanged.">
-              <span class="template-icon">🌧</span><span class="template-label">Add Rain</span>
-            </button>
-            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Add falling snow with a cold winter atmosphere, frost on surfaces, foggy breath, and cold blue tones. The subject must remain pixel-perfect unchanged.">
-              <span class="template-icon">❄</span><span class="template-label">Add Snow</span>
-            </button>
-            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to a beautiful ocean sunset with warm pink and orange sky colors and gentle water reflections. The subject must remain pixel-perfect unchanged.">
-              <span class="template-icon">🌅</span><span class="template-label">Sunset BG</span>
-            </button>
-            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to outer space with stars, colorful nebula, and cosmic dust particles. The subject must remain pixel-perfect unchanged.">
-              <span class="template-icon">🌌</span><span class="template-label">Space BG</span>
-            </button>
-            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to a vast golden desert landscape with sand dunes and heat haze. The subject must remain pixel-perfect unchanged.">
-              <span class="template-icon">🏜</span><span class="template-label">Desert BG</span>
-            </button>
           </div>
         </div>
 

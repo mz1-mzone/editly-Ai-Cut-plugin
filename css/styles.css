@@ -400,24 +400,25 @@ body {
 .vfx-page.active { display: block; animation: slideUp 0.3s var(--ease-out); }
 
 /* Template Grid */
-.template-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 4px 0;
+/* Template Strip (horizontal scroll) */
+.template-strip {
+  display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 6px;
+  scrollbar-width: none; -ms-overflow-style: none;
 }
-.template-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 10px 4px; border-radius: var(--radius-sm); cursor: pointer;
+.template-strip::-webkit-scrollbar { display: none; }
+.template-pill {
+  flex-shrink: 0; padding: 4px 10px; border-radius: 12px;
   border: 1px solid var(--border); background: var(--bg-input);
-  color: var(--text-secondary); transition: all var(--transition-fast);
+  color: var(--text-secondary); font-size: 11px; cursor: pointer;
+  white-space: nowrap; transition: all var(--transition-fast);
 }
-.template-btn:hover {
+.template-pill:hover {
   border-color: var(--accent); color: var(--text-primary);
-  background: rgba(157,92,255,0.08); transform: translateY(-1px);
+  background: rgba(157,92,255,0.08);
 }
-.template-btn.selected {
-  border-color: var(--accent); background: rgba(157,92,255,0.12); color: var(--accent);
+.template-pill.selected {
+  border-color: var(--accent); background: rgba(157,92,255,0.15); color: var(--accent);
 }
-.template-icon { font-size: 20px; }
-.template-label { font-size: 10px; font-weight: 500; text-align: center; line-height: 1.2; }
 
 /* VFX Generate Button */
 .vfx-generate { margin-top: 8px; }

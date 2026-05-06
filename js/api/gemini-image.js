@@ -97,7 +97,12 @@ var GeminiImage = (function () {
       return { success: false, error: 'No response from Gemini' };
     }
 
-    var parts = response.candidates[0].content.parts;
+    var candidate = response.candidates[0];
+    if (!candidate.content || !candidate.content.parts) {
+      var reason = candidate.finishReason || 'unknown';
+      return { success: false, error: 'Gemini returned no content (reason: ' + reason + ')' };
+    }
+    var parts = candidate.content.parts;
     var textParts = [];
     var imageBase64 = null;
 
