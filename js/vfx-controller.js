@@ -54,12 +54,20 @@ var VFXController = (function () {
   /**
    * Extract a video chunk using ffmpeg.
    */
-  function extractVideoChunk(mediaPath, startTime, duration, outputPath) {
+  function extractVideoChunk(mediaPath, startTime, duration, outputPath, maxPixels) {
     return new Promise(function (resolve, reject) {
       var exec = require('child_process').exec;
+      var scaleFilter = '';
+      if (maxPixels) {
+        // Scale down proportionally if source exceeds pixel budget
+        // Uses expression: if(w*h > maxPixels, scale so w*h = maxPixels, keep original)
+        scaleFilter = ' -vf "scale=iw*min(1\\,sqrt(' + maxPixels + '/(iw*ih))):ih*min(1\\,sqrt(' + maxPixels + '/(iw*ih))):flags=lanczos" -c:v libx264 -preset fast -crf 18 -c:a aac';
+      } else {
+        scaleFilter = ' -c copy';
+      }
       var cmd = '/opt/homebrew/bin/ffmpeg -y -ss ' + startTime.toFixed(3) +
         ' -i "' + mediaPath + '" -t ' + duration.toFixed(3) +
-        ' -c copy "' + outputPath + '"';
+        scaleFilter + ' "' + outputPath + '"';
       exec(cmd, function (err) {
         if (err) {
           var cmd2 = cmd.replace('/opt/homebrew/bin/', '/usr/local/bin/');
@@ -189,8 +197,10 @@ var VFXController = (function () {
         // Step 1: Extract video chunk
         updateTask({ status: 'extracting', progress: 10 });
         var chunkPath = outputDir + '/chunk_' + task.id + '.mp4';
+        // Beeble: source must be under 2,770,000 pixels — downscale if needed
+        var maxPixels = isBeeble ? 2700000 : null;
 
-        return extractVideoChunk(task.mediaPath, task.startTime, task.duration, chunkPath)
+        return extractVideoChunk(task.mediaPath, task.startTime, task.duration, chunkPath, maxPixels)
           .then(function () {
             // Step 2: Submit to API
             updateTask({ status: 'submitting', progress: 15 });
