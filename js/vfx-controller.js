@@ -316,10 +316,11 @@ var VFXController = (function () {
             if (!isBeeble) return;
 
             updateTask({ progress: 90 });
-            var recodePath = videoPath.replace('.mp4', '_h264.mp4');
+            var vp = task.videoPath;
+            var recodePath = vp.replace('.mp4', '_h264.mp4');
             return new Promise(function (resolve, reject) {
               var exec = require('child_process').exec;
-              var cmd = '/opt/homebrew/bin/ffmpeg -y -i "' + videoPath + '" -c:v libx264 -preset fast -crf 18 -c:a aac -movflags +faststart "' + recodePath + '"';
+              var cmd = '/opt/homebrew/bin/ffmpeg -y -i "' + vp + '" -c:v libx264 -preset fast -crf 18 -c:a aac -movflags +faststart "' + recodePath + '"';
               exec(cmd, function (err) {
                 if (err) {
                   var cmd2 = cmd.replace('/opt/homebrew/bin/', '/usr/local/bin/');
@@ -328,17 +329,16 @@ var VFXController = (function () {
                       console.warn('[VFX] Re-encode failed, using original file');
                       resolve();
                     } else {
-                      // Replace original with re-encoded
                       var fs = require('fs');
-                      try { fs.unlinkSync(videoPath); } catch (e) {}
-                      fs.renameSync(recodePath, videoPath);
+                      try { fs.unlinkSync(vp); } catch (e) {}
+                      fs.renameSync(recodePath, vp);
                       resolve();
                     }
                   });
                 } else {
                   var fs = require('fs');
-                  try { fs.unlinkSync(videoPath); } catch (e) {}
-                  fs.renameSync(recodePath, videoPath);
+                  try { fs.unlinkSync(vp); } catch (e) {}
+                  fs.renameSync(recodePath, vp);
                   resolve();
                 }
               });
