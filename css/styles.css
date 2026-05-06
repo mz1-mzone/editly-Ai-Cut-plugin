@@ -420,7 +420,10 @@ body {
   border-color: var(--accent); background: rgba(157,92,255,0.15); color: var(--accent);
 }
 
-/* VFX Generate Button */
+/* VFX Action Row */
+.vfx-action-row { display: flex; gap: 8px; margin-top: 8px; }
+.vfx-action-row .vfx-generate { flex: 1; margin-top: 0; }
+.vfx-action-row .vfx-upload-ref { flex-shrink: 0; padding: 0 14px; font-size: 12px; }
 .vfx-generate { margin-top: 8px; }
 .vfx-queue-btn { margin-top: 6px; width: 100%; text-align: center; }
 

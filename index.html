@@ -175,8 +175,12 @@
           </div>
         </div>
 
-        <!-- Generate Button -->
-        <button class="btn-primary vfx-generate" id="vfxBtnGenerate" disabled>🚀 Generate Preview</button>
+        <!-- Generate / Upload Buttons -->
+        <div class="vfx-action-row">
+          <button class="btn-primary vfx-generate" id="vfxBtnGenerate" disabled>🚀 Generate Preview</button>
+          <button class="btn-secondary vfx-upload-ref" id="vfxBtnUploadRef">📷 Upload Image</button>
+          <input type="file" id="vfxRefImageInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+        </div>
         <button class="btn-secondary vfx-queue-btn" id="vfxBtnViewQueue" style="display:none;">📋 View Queue</button>
       </div>
 

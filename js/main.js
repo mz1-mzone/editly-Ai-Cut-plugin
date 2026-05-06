@@ -79,6 +79,8 @@
     vfxPromptInput: document.getElementById('vfxPromptInput'),
     templateGrid: document.getElementById('templateGrid'),
     vfxBtnGenerate: document.getElementById('vfxBtnGenerate'),
+    vfxBtnUploadRef: document.getElementById('vfxBtnUploadRef'),
+    vfxRefImageInput: document.getElementById('vfxRefImageInput'),
     vfxBtnViewQueue: document.getElementById('vfxBtnViewQueue'),
     vfxModelSelect: document.getElementById('vfxModelSelect'),
     vfxImageUpload: document.getElementById('vfxImageUpload'),
@@ -1158,6 +1160,39 @@
     renderVFXQueue();
     showVFXPage('queue');
   });
+
+  // Upload Reference Image (skip Gemini)
+  if (els.vfxBtnUploadRef) {
+    els.vfxBtnUploadRef.addEventListener('click', function () {
+      if (!vfxClipData) { showToast('Select a clip first', 'error'); return; }
+      els.vfxRefImageInput.click();
+    });
+  }
+  if (els.vfxRefImageInput) {
+    els.vfxRefImageInput.addEventListener('change', function () {
+      var file = this.files && this.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        var dataUrl = e.target.result; // data:image/png;base64,...
+        var base64 = dataUrl.split(',')[1];
+        vfxPreviewData = { success: true, imageBase64: base64 };
+
+        // Show preview page
+        showVFXPage('preview');
+        els.vfxProgressArea.style.display = 'none';
+        els.vfxPreviewContainer.style.display = 'block';
+        els.vfxPreviewImg.src = dataUrl;
+        els.vfxPreviewActions.style.display = 'flex';
+        els.vfxPreviewStatus.textContent = 'Uploaded Reference';
+        els.vfxPreviewStatus.className = 'card-badge ready';
+        showToast('Reference image loaded — ready to approve', 'success');
+      };
+      reader.readAsDataURL(file);
+      // Reset so same file can be re-selected
+      this.value = '';
+    });
+  }
 
   // Model selector: toggle Seedance image upload area
   if (els.vfxModelSelect) {
