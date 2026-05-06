@@ -1,4 +1,4 @@
-# Editly AI Cut — Plugin Files
+# Editly AI Editor — Plugin Files
 config/settings.json
 .debug
 
@@ -13,6 +13,19 @@ Thumbs.db
 *.wav
 *.mp3
 *.m4a
+
+# Video files
+*.mp4
+*.mov
+
+# Design files
+*.psd
+*.ai
+
+# Build artifacts
+*.pkg
+*.dmg
+build/
 
 # Temp files
 gemini_chunks_*

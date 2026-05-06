@@ -1,24 +1,36 @@
 # Editly AI Editor
 
-**AI-Powered Story Editor for Adobe Premiere Pro**
+**AI-Powered Story Editor & VFX Studio for Adobe Premiere Pro**
 
-Editly AI Editor uses ElevenLabs for speech transcription and Claude AI for intelligent story editing. Select your clips, describe the story you want, and the AI creates professional cuts removing fillers, silence, and weak sections while keeping the narrative intact.
+Editly AI Editor combines intelligent story editing with a powerful VFX studio. Use Claude AI to auto-cut your footage, generate AI images with Gemini, and create AI-powered video effects with Kling 3.0, Seedance 2.0, and Beeble SwitchX — all from within Premiere Pro.
 
 ---
 
 ## ✨ Features
 
-- **AI Story Editing** Claude reads the transcript and makes narrative-focused cuts
-- **Auto Filler Detection** Removes "aaaa", "um", breathing, and silence
-- **Arabic Support** Native Arabic speech pattern understanding
-- **Non-Destructive** Disables clips instead of deleting (undo anytime)
-- **Auto-Updates** Plugin checks GitHub for updates on every launch
+### 🎬 AI Story Editor
+- **Claude AI** reads your transcript and makes narrative-focused cuts
+- **Auto Filler Detection** — removes "um", "uh", breathing, and silence
+- **Arabic Support** — native Arabic speech pattern understanding
+- **Non-Destructive** — disables clips instead of deleting (undo anytime)
+
+### 🎨 VFX Studio
+- **Kling 3.0** — motion-controlled video generation (up to 30s)
+- **Seedance 2.0** — high-quality video generation with audio (up to 15s)
+- **Beeble SwitchX** — face-accurate background replacement
+- **Gemini Image Generation** — AI preview images before video generation
+- **Upload Reference Images** — skip AI generation and use your own
+- **Direct Video Generation** — Seedance text/image-to-video without a source clip
+- **Auto Timeline Import** — generated clips placed above the original with audio sync
+
+### 🔄 Auto-Updates
+- Plugin checks GitHub for new versions every launch
 
 ---
 
 ## 📦 Installation
 
-### Mac
+### Mac (Recommended)
 
 Open Terminal and run:
 
@@ -26,7 +38,9 @@ Open Terminal and run:
 bash <(curl -s https://raw.githubusercontent.com/mz1-mzone/editly-Ai-Cut-plugin/main/install-mac.sh)
 ```
 
-Or download `install-mac.sh` and run it.
+### Mac (.pkg Installer)
+
+Download `EditlyAIEditor.pkg` from [Releases](https://github.com/mz1-mzone/editly-Ai-Cut-plugin/releases) and double-click to install.
 
 ### Windows
 
@@ -46,50 +60,78 @@ Or download `install-mac.sh` and run it.
 1. Open Premiere Pro → **Window** → **Extensions** → **Editly AI Editor**
 2. Click the **⚙ Settings** button
 3. Enter your API keys:
-   - **ElevenLabs API Key** Get one at [elevenlabs.io](https://elevenlabs.io)
-   - **Anthropic API Key** Get one at [console.anthropic.com](https://console.anthropic.com)
+
+| Service | Purpose | Get Key |
+|---|---|---|
+| **ElevenLabs** | Speech transcription | [elevenlabs.io](https://elevenlabs.io) |
+| **Anthropic** | AI story editing (Claude) | [console.anthropic.com](https://console.anthropic.com) |
+| **Gemini** | AI image generation | [aistudio.google.com](https://aistudio.google.com) |
+| **Kling** | Motion-controlled video FX | [klingai.com](https://klingai.com) |
+| **Seedance** | High-quality video generation | [docs.byteplus.com](https://docs.byteplus.com) |
+| **Beeble** | Face-safe background swap | [developer.beeble.ai](https://developer.beeble.ai) |
+
 4. Click **Save Settings**
+
+> **Note:** You only need keys for the features you use. ElevenLabs + Anthropic for story editing, Gemini + one video model for VFX.
 
 ---
 
 ## 🎬 Usage
 
+### Story Editor
+
 1. **Select clips** on the timeline
 2. Click **↻ Refresh** to load clip info
 3. Write a **Story Prompt** (e.g. "Create a highlight reel focusing on emotional moments")
-4. Set a **Target Duration** (this is a loose guide)
+4. Set a **Target Duration**
 5. Click **✂ Create a Cut**
-6. Wait for the 4-step process:
-   - Export Audio → Transcribe → AI Story Edit → Apply Cuts
-7. Review the results **Approve** or **Undo**
+6. Review → **Approve** or **Undo**
 
----
+### VFX Studio
 
-## 🔄 Auto-Updates
+1. Switch to **VFX Studio** tab
+2. **Select a clip** on the timeline and click **↻ Refresh**
+3. Write an **Effect Prompt** or choose a template
+4. Choose a **Video Model** (Kling, Seedance, or Beeble)
+5. Click **🚀 Generate Preview** or **📷 Upload Image** for a reference
+6. **Approve** to send to the generation queue
+7. Generated clips auto-import above the original on the timeline
 
-The plugin automatically checks GitHub for new versions every time Premiere Pro opens. If an update is found, it downloads and applies it you just need to restart Premiere.
+### Direct Video Generation (Seedance 2.0)
 
-For manual updates:
-```bash
-cd ~/Library/Application\ Support/Adobe/CEP/extensions/EditlyPlugin  # Mac
-cd %APPDATA%\Adobe\CEP\extensions\EditlyPlugin                       # Windows
-git pull
-```
+1. Select **Seedance 2.0** as the model
+2. Write a prompt and optionally upload reference images
+3. Click **⚡ Generate Video Directly** — no source clip needed
+4. Generates 15s, 1080p video with audio matching your sequence aspect ratio
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-Premiere Timeline
-    ↓
-FFmpeg extracts audio (mono 16kHz WAV)
-    ↓
-ElevenLabs Scribe v2 (speech-to-text with timestamps)
-    ↓
-Claude AI (story analysis → keep/remove decisions)
-    ↓
-ExtendScript applies razor cuts & disables removed clips
+┌─────────────── STORY EDITOR ───────────────┐
+│ Premiere Timeline                          │
+│     ↓                                      │
+│ FFmpeg extracts audio (mono 16kHz WAV)     │
+│     ↓                                      │
+│ ElevenLabs Scribe v2 (speech-to-text)      │
+│     ↓                                      │
+│ Claude AI (story analysis → cuts)          │
+│     ↓                                      │
+│ ExtendScript applies razor cuts            │
+└────────────────────────────────────────────┘
+
+┌──────────────── VFX STUDIO ────────────────┐
+│ Selected Clip + Prompt                     │
+│     ↓                                      │
+│ Gemini 2.0 Flash (AI preview image)        │
+│     ↓                                      │
+│ Kling 3.0 / Seedance 2.0 / Beeble SwitchX │
+│     ↓                                      │
+│ FFmpeg re-encode (H.264)                   │
+│     ↓                                      │
+│ Auto-import to timeline above source       │
+└────────────────────────────────────────────┘
 ```
 
 ---
@@ -107,14 +149,20 @@ EditlyPlugin/
 │   ├── CSInterface.js         # Adobe CEP bridge
 │   ├── api/
 │   │   ├── ai-editor.js       # Claude AI story editor
-│   │   ├── transcribe.js      # ElevenLabs transcription
-│   │   └── silence-detect.js  # FFmpeg silence detection
-│   ├── updater.js             # GitHub auto-updater
+│   │   ├── beeble-video.js    # Beeble SwitchX API client
+│   │   ├── gemini-image.js    # Gemini image generation
+│   │   ├── kling-video.js     # Kling 3.0 video API client
+│   │   ├── seedance-video.js  # Seedance 2.0 video API client
+│   │   ├── silence-detect.js  # FFmpeg silence detection
+│   │   └── transcribe.js      # ElevenLabs transcription
 │   ├── main.js                # App controller & pipeline
+│   ├── updater.js             # GitHub auto-updater
+│   ├── vfx-controller.js      # VFX task queue & processing
 │   └── utils/                 # Audio & timeline utilities
 ├── jsx/hostscript.jsx         # Premiere Pro ExtendScript
-├── install-mac.sh             # Mac installer
+├── install-mac.sh             # Mac installer (curl one-liner)
 ├── install-windows.bat        # Windows installer
+├── build-mac-pkg.sh           # macOS .pkg builder
 └── version.json               # Update tracking
 ```
 

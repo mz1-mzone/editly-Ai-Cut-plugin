@@ -4,5 +4,7 @@
   "ai_model": "claude-opus-4-7",
   "gemini_api_key": "",
   "kling_access_key": "",
-  "kling_secret_key": ""
+  "kling_secret_key": "",
+  "seedance_api_key": "",
+  "beeble_api_key": ""
 }
