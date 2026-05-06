@@ -214,7 +214,8 @@ var VFXController = (function () {
             // Step 4: Download video to project folder
             updateTask({ status: 'downloading', progress: 85 });
             var safeName = (task.clipName || 'clip').replace(/[^a-zA-Z0-9_-]/g, '_');
-            var videoPath = outputDir + '/VFX_' + safeName + '_' + (task.chunkIndex + 1) + '.mp4';
+            var timestamp = Date.now().toString(36);
+            var videoPath = outputDir + '/VFX_' + safeName + '_' + (task.chunkIndex + 1) + '_' + timestamp + '.mp4';
             task.videoPath = videoPath;
 
             return KlingVideo.downloadVideo(pollResult.videoUrl, videoPath);

@@ -194,7 +194,7 @@ var KlingVideo = (function () {
         var duration = Math.max(MIN_DURATION, Math.min(opts.duration || 5, MAX_DURATION));
 
         var body = {
-          model_name: 'kling-v2-6',
+          model_name: 'kling-v3',
           image_url: urls.imageUrl,
           video_url: urls.videoUrl,
           character_orientation: 'image',
