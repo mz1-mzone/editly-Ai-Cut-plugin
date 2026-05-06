@@ -54,10 +54,9 @@
     statSaved: document.getElementById('statSaved'),
     btnApplyCuts: document.getElementById('btnApplyCuts'),
     btnUndo: document.getElementById('btnUndo'),
-    // Ripple delete
-    rippleSection: document.getElementById('rippleSection'),
-    btnRippleDelete: document.getElementById('btnRippleDelete'),
-    btnUndoFinal: document.getElementById('btnUndoFinal'),
+    // Delete final
+    deleteSection: document.getElementById('deleteSection'),
+    btnDeleteCuts: document.getElementById('btnDeleteCuts'),
     // Settings
     btnSettings: document.getElementById('btnSettings'),
     settingsOverlay: document.getElementById('settingsOverlay'),
@@ -356,7 +355,8 @@
     }
     els.progressSection.classList.remove('active');
     els.transcriptSection.classList.remove('active');
-    els.rippleSection.classList.remove('active');
+    els.deleteSection.classList.remove('active');
+    els.btnApplyCuts.style.display = '';
     showPage('setup');
   }
 
@@ -628,9 +628,10 @@
       .then(function (disableResult) {
         var count = disableResult ? (disableResult.disabledCount || 0) : 0;
         setStepState(4, 'completed', 'Done! ' + count + ' clips disabled');
-        showToast('Cuts applied! Preview the result, then finalize.', 'success');
-        // Show ripple delete section
-        els.rippleSection.classList.add('active');
+        showToast('Cuts applied! Preview the result, then delete if happy.', 'success');
+        // Show delete button, hide apply button
+        els.btnApplyCuts.style.display = 'none';
+        els.deleteSection.classList.add('active');
       })
       .catch(function (err) {
         setStepState(4, 'error', err.message);
@@ -656,31 +657,31 @@
       .catch(function (err) { showToast('Undo failed: ' + err.message, 'error'); });
   }
 
-  // ==================== RIPPLE DELETE ====================
+  // ==================== DELETE CUTS ====================
 
-  function rippleDelete() {
+  function deleteCuts() {
     if (isProcessing) return;
     isProcessing = true;
-    els.btnRippleDelete.disabled = true;
-    els.btnRippleDelete.textContent = '⏳ Deleting...';
+    els.btnDeleteCuts.disabled = true;
+    els.btnDeleteCuts.textContent = '⏳ Deleting...';
 
     evalScript('approveChanges()')
       .then(function (result) {
         if (result.error) {
-          showToast('Ripple delete error: ' + result.error, 'error');
+          showToast('Delete error: ' + result.error, 'error');
           return;
         }
         stateManager.clearState();
-        els.rippleSection.classList.remove('active');
+        els.deleteSection.classList.remove('active');
         els.transcriptSection.classList.remove('active');
-        showToast('✓ Ripple deleted ' + (result.removedCount || 0) + ' clips. Timeline is clean!', 'success');
+        showToast('Done! ' + (result.removedCount || 0) + ' clips deleted. Timeline is clean.', 'success');
         refreshClipInfo();
       })
-      .catch(function (err) { showToast('Ripple delete failed: ' + err.message, 'error'); })
+      .catch(function (err) { showToast('Delete failed: ' + err.message, 'error'); })
       .then(function () {
         isProcessing = false;
-        els.btnRippleDelete.disabled = false;
-        els.btnRippleDelete.textContent = '🗑 Ripple Delete  Irreversible!';
+        els.btnDeleteCuts.disabled = false;
+        els.btnDeleteCuts.textContent = '🗑 Delete Removed Clips';
       });
   }
 
@@ -718,8 +719,7 @@
   els.btnCreateCut.addEventListener('click', createCut);
   els.btnApplyCuts.addEventListener('click', applyCuts);
   els.btnUndo.addEventListener('click', undoEdit);
-  els.btnUndoFinal.addEventListener('click', undoEdit);
-  els.btnRippleDelete.addEventListener('click', rippleDelete);
+  els.btnDeleteCuts.addEventListener('click', deleteCuts);
   els.btnBack.addEventListener('click', function () {
     if (!isProcessing) showPage('setup');
   });

@@ -50,13 +50,14 @@ var AIEditor = (function () {
         var lastRemove = autoRemoveSegments[autoRemoveSegments.length - 1];
         if (lastRemove && Math.abs(seg.start - lastRemove.end) < 0.05) {
           lastRemove.end = seg.end;
-          lastRemove.reason += ', ' + type;
+          lastRemove._origText += ' ' + (seg.text || '').trim();
         } else {
           autoRemoveSegments.push({
             start: seg.start,
             end: seg.end,
             action: 'remove',
-            reason: type
+            reason: type === 'filler' ? 'Filler word' : type === 'silence' ? 'Silence' : type === 'breathing' ? 'Breathing' : type,
+            _origText: (seg.text || '').trim()
           });
         }
       } else {
@@ -140,7 +141,7 @@ var AIEditor = (function () {
 
       // Attach transcript text to auto-remove segments
       autoRemoveSegments.forEach(function (seg) {
-        seg._text = '[' + seg.reason + ']';
+        seg._text = seg._origText || '';
       });
 
       // Attach transcript text to Claude segments by matching timestamps

@@ -163,29 +163,17 @@
 
         <!-- Action buttons -->
         <div class="action-buttons">
-          <button class="btn-approve" id="btnApplyCuts">✂ Apply Cuts (Disable)</button>
+          <button class="btn-approve" id="btnApplyCuts">✂ Apply Cuts</button>
           <button class="btn-undo" id="btnUndo">↩ Undo All</button>
+        </div>
+
+        <!-- Delete button (shown after Apply) -->
+        <div class="delete-section" id="deleteSection">
+          <button class="btn-delete-final" id="btnDeleteCuts">🗑 Delete Removed Clips</button>
+          <div class="delete-note">This will permanently remove disabled clips and close gaps. It cannot be undone.</div>
         </div>
       </div>
 
-      <!-- Ripple Delete Section (shown after Apply) -->
-      <div class="card ripple-section" id="rippleSection">
-        <div class="card-header">
-          <span class="card-title">Finalize Edit</span>
-          <span class="card-badge ready">✓ Cuts Applied</span>
-        </div>
-        <div class="ripple-info">
-          <p>Cuts have been applied removed segments are <strong>disabled</strong> on the timeline.</p>
-          <p>Preview the result. If you're happy, ripple-delete to close the gaps.</p>
-        </div>
-        <div class="action-buttons">
-          <button class="btn-ripple-delete" id="btnRippleDelete">🗑 Ripple Delete Irreversible!</button>
-          <button class="btn-undo" id="btnUndoFinal">↩ Undo All</button>
-        </div>
-        <div class="ripple-warning">
-          ⚠ Ripple Delete permanently removes disabled clips and closes gaps. This cannot be undone.
-        </div>
-      </div>
 
     </div>
 
