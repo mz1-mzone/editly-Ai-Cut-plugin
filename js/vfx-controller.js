@@ -136,11 +136,17 @@ var VFXController = (function () {
       imageBase64: opts.imageBase64,
       thumbDataUri: thumbDataUri,
       mediaPath: opts.mediaPath,
+      // Model selection
+      model: opts.model || 'kling-v3',
+      ratio: opts.ratio || '16:9',
+      extraImagePaths: opts.extraImagePaths || [],
+      // API keys
       klingAccessKey: opts.klingAccessKey,
       klingSecretKey: opts.klingSecretKey,
+      seedanceApiKey: opts.seedanceApiKey,
       status: 'queued',
       progress: 0,
-      klingTaskId: null,
+      taskId: null,
       videoPath: null,
       error: null,
       createdAt: Date.now()
@@ -150,7 +156,7 @@ var VFXController = (function () {
   }
 
   /**
-   * Process a single task through the full Kling pipeline.
+   * Process a single task through the full pipeline (Kling or Seedance).
    */
   function processTask(task, onUpdate, evalScript) {
     var fs = require('fs');
@@ -160,7 +166,10 @@ var VFXController = (function () {
       if (onUpdate) onUpdate(task);
     }
 
-    // Step 0: Get project folder to save outputs next to the project file
+    var isSeedance = task.model === 'seedance-2';
+    var modelLabel = isSeedance ? 'Seedance' : 'Kling';
+
+    // Step 0: Get project folder
     updateTask({ status: 'extracting', progress: 5 });
 
     return evalScript('getProjectFolder()')
@@ -169,7 +178,6 @@ var VFXController = (function () {
         if (projResult && projResult.success && projResult.folder) {
           outputDir = projResult.folder + '/Editly_VFX';
         } else {
-          // Fallback to temp dir if project not saved
           outputDir = require('os').tmpdir() + '/editly_vfx';
         }
         try { fs.mkdirSync(outputDir, { recursive: true }); } catch (e) {}
@@ -182,48 +190,77 @@ var VFXController = (function () {
 
         return extractVideoChunk(task.mediaPath, task.startTime, task.duration, chunkPath)
           .then(function () {
-            // Step 2: Submit to Kling (includes file upload to tmpfiles.org)
+            // Step 2: Submit to API
             updateTask({ status: 'submitting', progress: 15 });
-            return KlingVideo.submitTask({
-              accessKey: task.klingAccessKey,
-              secretKey: task.klingSecretKey,
-              referenceImageBase64: task.imageBase64,
-              videoFilePath: chunkPath,
-              prompt: task.prompt,
-              duration: Math.max(3, Math.min(task.duration, 30)),
-              onProgress: function (p) {
-                updateTask({ progress: Math.min(25, task.progress + 2) });
-                if (p.detail) console.log('[VFX] ' + p.detail);
-              }
-            });
+
+            if (isSeedance) {
+              // ---------- SEEDANCE 2.0 ----------
+              return SeedanceVideo.submitTask({
+                apiKey: task.seedanceApiKey,
+                prompt: task.prompt,
+                referenceImageBase64: task.imageBase64,
+                extraImagePaths: task.extraImagePaths || [],
+                videoFilePath: chunkPath,
+                duration: Math.max(4, Math.min(task.duration, 15)),
+                ratio: task.ratio || '16:9',
+                onProgress: function (p) {
+                  updateTask({ progress: Math.min(25, task.progress + 2) });
+                  if (p.detail) console.log('[VFX][Seedance] ' + p.detail);
+                }
+              });
+            } else {
+              // ---------- KLING 3.0 ----------
+              return KlingVideo.submitTask({
+                accessKey: task.klingAccessKey,
+                secretKey: task.klingSecretKey,
+                referenceImageBase64: task.imageBase64,
+                videoFilePath: chunkPath,
+                prompt: task.prompt,
+                duration: Math.max(3, Math.min(task.duration, 30)),
+                onProgress: function (p) {
+                  updateTask({ progress: Math.min(25, task.progress + 2) });
+                  if (p.detail) console.log('[VFX][Kling] ' + p.detail);
+                }
+              });
+            }
           })
           .then(function (submitResult) {
             if (!submitResult.success) throw new Error(submitResult.error);
-            task.klingTaskId = submitResult.taskId;
-            console.log('[VFX] Task submitted, ID: ' + submitResult.taskId);
+            task.taskId = submitResult.taskId;
+            console.log('[VFX][' + modelLabel + '] Task submitted, ID: ' + submitResult.taskId);
 
             // Step 3: Poll until done
             updateTask({ status: 'processing', progress: 30 });
-            return KlingVideo.pollTask(task.klingAccessKey, task.klingSecretKey, submitResult.taskId, function (pollData) {
-              var pct = 30 + Math.round((pollData.progress || 0) * 0.5);
-              updateTask({ progress: Math.min(pct, 80) });
-            });
+
+            if (isSeedance) {
+              return SeedanceVideo.pollTask(task.seedanceApiKey, submitResult.taskId, function (pollData) {
+                var pct = 30 + Math.round((pollData.progress || 0) * 0.5);
+                updateTask({ progress: Math.min(pct, 80) });
+              });
+            } else {
+              return KlingVideo.pollTask(task.klingAccessKey, task.klingSecretKey, submitResult.taskId, function (pollData) {
+                var pct = 30 + Math.round((pollData.progress || 0) * 0.5);
+                updateTask({ progress: Math.min(pct, 80) });
+              });
+            }
           })
           .then(function (pollResult) {
             if (!pollResult.success) throw new Error(pollResult.error || 'Generation failed');
-            if (!pollResult.videoUrl) throw new Error('No video URL returned from Kling');
+            if (!pollResult.videoUrl) throw new Error('No video URL returned from ' + modelLabel);
 
-            // Step 4: Download video to project folder
+            // Step 4: Download video
             updateTask({ status: 'downloading', progress: 85 });
             var safeName = (task.clipName || 'clip').replace(/[^a-zA-Z0-9_-]/g, '_');
             var timestamp = Date.now().toString(36);
-            var videoPath = outputDir + '/VFX_' + safeName + '_' + (task.chunkIndex + 1) + '_' + timestamp + '.mp4';
+            var prefix = isSeedance ? 'SD_' : 'VFX_';
+            var videoPath = outputDir + '/' + prefix + safeName + '_' + (task.chunkIndex + 1) + '_' + timestamp + '.mp4';
             task.videoPath = videoPath;
 
+            // Use Kling's download helper (it's just an HTTPS download)
             return KlingVideo.downloadVideo(pollResult.videoUrl, videoPath);
           })
           .then(function () {
-            // Step 5: Import into Premiere Pro at the correct timeline position
+            // Step 5: Import into Premiere Pro
             updateTask({ status: 'importing', progress: 95 });
             var timelinePos = task.timelineStart || task.startTime;
             console.log('[VFX] Importing video: ' + task.videoPath + ' at timeline position ' + timelinePos + 's');

@@ -26,13 +26,15 @@
     ai_model: 'claude-opus-4-7',
     gemini_api_key: '',
     kling_access_key: '',
-    kling_secret_key: ''
+    kling_secret_key: '',
+    seedance_api_key: ''
   };
 
   // VFX state
   var vfxClipData = null;
   var vfxPreviewData = null;
   var vfxIsProcessing = false;
+  var vfxUploadedImages = []; // Array of {path, dataUri} for Seedance reference images
 
   // ==================== DOM REFERENCES ====================
   var els = {
@@ -77,6 +79,12 @@
     templateGrid: document.getElementById('templateGrid'),
     vfxBtnGenerate: document.getElementById('vfxBtnGenerate'),
     vfxBtnViewQueue: document.getElementById('vfxBtnViewQueue'),
+    vfxModelSelect: document.getElementById('vfxModelSelect'),
+    vfxImageUpload: document.getElementById('vfxImageUpload'),
+    vfxDropzone: document.getElementById('vfxDropzone'),
+    vfxFileInput: document.getElementById('vfxFileInput'),
+    vfxUploadThumbs: document.getElementById('vfxUploadThumbs'),
+    settingsSeedanceKey: document.getElementById('settingsSeedanceKey'),
     // VFX Preview
     vfxPageSetup: document.getElementById('vfxPageSetup'),
     vfxPagePreview: document.getElementById('vfxPagePreview'),
@@ -156,6 +164,7 @@
         settings.gemini_api_key = loaded.gemini_api_key || '';
         settings.kling_access_key = loaded.kling_access_key || '';
         settings.kling_secret_key = loaded.kling_secret_key || '';
+        settings.seedance_api_key = loaded.seedance_api_key || '';
       }
     } catch (e) {
       console.warn('Could not load settings:', e.message);
@@ -168,6 +177,7 @@
     if (els.settingsGeminiKey) els.settingsGeminiKey.value = settings.gemini_api_key;
     if (els.settingsKlingAK) els.settingsKlingAK.value = settings.kling_access_key;
     if (els.settingsKlingSK) els.settingsKlingSK.value = settings.kling_secret_key;
+    if (els.settingsSeedanceKey) els.settingsSeedanceKey.value = settings.seedance_api_key;
 
     updateConnectionStatus();
     initApiClients();
@@ -180,6 +190,7 @@
     if (els.settingsGeminiKey) settings.gemini_api_key = els.settingsGeminiKey.value.trim();
     if (els.settingsKlingAK) settings.kling_access_key = els.settingsKlingAK.value.trim();
     if (els.settingsKlingSK) settings.kling_secret_key = els.settingsKlingSK.value.trim();
+    if (els.settingsSeedanceKey) settings.seedance_api_key = els.settingsSeedanceKey.value.trim();
 
     try {
       var extPath = csInterface.getSystemPath(SystemPath.EXTENSION);
@@ -893,16 +904,83 @@
     .then(function () { vfxIsProcessing = false; });
   }
 
+  // ==================== VFX IMAGE UPLOAD ====================
+
+  function handleVFXImageDrop(fileList) {
+    if (!fileList || fileList.length === 0) return;
+    for (var i = 0; i < fileList.length; i++) {
+      var file = fileList[i];
+      if (!file.type.startsWith('image/')) continue;
+      var filePath = file.path || file.name;
+      var reader = new FileReader();
+      (function (fp) {
+        reader.onload = function (e) {
+          vfxUploadedImages.push({ path: fp, dataUri: e.target.result });
+          renderVFXUploadThumbs();
+        };
+      })(filePath);
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function renderVFXUploadThumbs() {
+    if (!els.vfxUploadThumbs) return;
+    var html = '';
+    for (var i = 0; i < vfxUploadedImages.length; i++) {
+      html += '<div class="vfx-upload-thumb" data-idx="' + i + '">' +
+        '<img src="' + vfxUploadedImages[i].dataUri + '" alt="ref ' + (i + 1) + '">' +
+        '<button class="thumb-remove" data-remove="' + i + '">×</button>' +
+      '</div>';
+    }
+    els.vfxUploadThumbs.innerHTML = html;
+    els.vfxUploadThumbs.querySelectorAll('.thumb-remove').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var idx = parseInt(this.getAttribute('data-remove'), 10);
+        vfxUploadedImages.splice(idx, 1);
+        renderVFXUploadThumbs();
+      });
+    });
+  }
+
   function vfxApproveAndGenerate() {
     if (!vfxPreviewData || !vfxClipData) return;
-    if (!settings.kling_access_key || !settings.kling_secret_key) {
-      showToast('Configure Kling Access Key and Secret Key in Settings', 'error');
-      return;
+
+    var selectedModel = els.vfxModelSelect ? els.vfxModelSelect.value : 'kling-v3';
+    var prompt = els.vfxPromptInput.value.trim();
+    var dur = vfxClipData.duration || 0;
+
+    // Validate API keys based on model
+    if (selectedModel === 'kling-v3') {
+      if (!settings.kling_access_key || !settings.kling_secret_key) {
+        showToast('Configure Kling Access Key and Secret Key in Settings', 'error');
+        return;
+      }
+    } else if (selectedModel === 'seedance-2') {
+      if (!settings.seedance_api_key) {
+        showToast('Configure Seedance API Key in Settings', 'error');
+        return;
+      }
     }
 
-    var dur = vfxClipData.duration || 0;
-    var splits = KlingVideo.calculateSplits(dur, 30);
-    var prompt = els.vfxPromptInput.value.trim();
+    // Calculate splits based on model's max chunk duration
+    var maxChunk = selectedModel === 'seedance-2' ? 15 : 30;
+    var splits = selectedModel === 'seedance-2'
+      ? SeedanceVideo.calculateSplits(dur, maxChunk)
+      : KlingVideo.calculateSplits(dur, maxChunk);
+
+    // Calculate ratio from sequence dimensions
+    var fw = vfxClipData.frameWidth || 1920;
+    var fh = vfxClipData.frameHeight || 1080;
+    var ratio = SeedanceVideo.mapRatio(fw, fh);
+
+    // Collect extra image paths for Seedance
+    var extraImagePaths = [];
+    if (selectedModel === 'seedance-2' && vfxUploadedImages.length > 0) {
+      for (var j = 0; j < vfxUploadedImages.length; j++) {
+        if (vfxUploadedImages[j].path) extraImagePaths.push(vfxUploadedImages[j].path);
+      }
+    }
 
     // Create tasks for each chunk
     for (var i = 0; i < splits.length; i++) {
@@ -919,8 +997,13 @@
         prompt: prompt,
         imageBase64: vfxPreviewData.imageBase64,
         mediaPath: vfxClipData.mediaPath,
+        // Model-specific
+        model: selectedModel,
+        ratio: ratio,
+        extraImagePaths: extraImagePaths,
         klingAccessKey: settings.kling_access_key,
-        klingSecretKey: settings.kling_secret_key
+        klingSecretKey: settings.kling_secret_key,
+        seedanceApiKey: settings.seedance_api_key
       });
     }
 
@@ -1061,6 +1144,41 @@
     renderVFXQueue();
     showVFXPage('queue');
   });
+
+  // Model selector: toggle Seedance image upload area
+  if (els.vfxModelSelect) {
+    els.vfxModelSelect.addEventListener('change', function () {
+      var isSeedance = this.value === 'seedance-2';
+      els.vfxImageUpload.style.display = isSeedance ? 'block' : 'none';
+    });
+  }
+
+  // Image upload: dropzone click
+  if (els.vfxDropzone) {
+    els.vfxDropzone.addEventListener('click', function () {
+      els.vfxFileInput.click();
+    });
+    els.vfxDropzone.addEventListener('dragover', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      this.classList.add('dragover');
+    });
+    els.vfxDropzone.addEventListener('dragleave', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      this.classList.remove('dragover');
+    });
+    els.vfxDropzone.addEventListener('drop', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      this.classList.remove('dragover');
+      handleVFXImageDrop(e.dataTransfer.files);
+    });
+  }
+
+  if (els.vfxFileInput) {
+    els.vfxFileInput.addEventListener('change', function () {
+      handleVFXImageDrop(this.files);
+      this.value = ''; // Reset so same file can be re-selected
+    });
+  }
 
   // Template buttons
   els.templateGrid.querySelectorAll('.template-btn').forEach(function (btn) {

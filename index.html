@@ -144,6 +144,26 @@
           </div>
         </div>
 
+        <!-- Model Selector + Image Upload -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Video Model</span></div>
+          <div class="form-group">
+            <select class="form-select" id="vfxModelSelect">
+              <option value="kling-v3">Kling 3.0 Motion Control</option>
+              <option value="seedance-2">Seedance 2.0</option>
+            </select>
+          </div>
+          <!-- Image upload (shown for Seedance) -->
+          <div class="vfx-image-upload" id="vfxImageUpload" style="display:none;">
+            <div class="card-header"><span class="card-title" style="font-size:11px;">Reference Images (optional)</span></div>
+            <div class="vfx-dropzone" id="vfxDropzone">
+              <div class="dropzone-text">📎 Drag images here or click to browse</div>
+              <input type="file" id="vfxFileInput" multiple accept="image/*" style="display:none;">
+            </div>
+            <div class="vfx-upload-thumbs" id="vfxUploadThumbs"></div>
+          </div>
+        </div>
+
         <!-- Quick Templates -->
         <div class="card">
           <div class="card-header"><span class="card-title">Quick Templates</span></div>
@@ -290,6 +310,12 @@
             <input type="password" class="form-input" id="settingsKlingSK" placeholder="SK...">
           </div>
         </div>
+        <div class="settings-group">
+          <div class="form-group">
+            <label class="form-label">Seedance API Key (BytePlus)</label>
+            <input type="password" class="form-input" id="settingsSeedanceKey" placeholder="ark-...">
+          </div>
+        </div>
         <button class="btn-save-settings" id="btnSaveSettings">Save Settings</button>
       </div>
     </div>
@@ -307,6 +333,7 @@
   <!-- VFX APIs -->
   <script src="js/api/gemini-image.js"></script>
   <script src="js/api/kling-video.js"></script>
+  <script src="js/api/seedance-video.js"></script>
   <script src="js/vfx-controller.js"></script>
   <!-- Auto-updater -->
   <script src="js/updater.js"></script>
