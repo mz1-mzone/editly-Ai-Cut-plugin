@@ -627,3 +627,135 @@ function approveChanges() {
 }
 
 
+// ========== VFX: CLIP MEDIA INFO ==========
+
+/**
+ * Get the source media file path and timing info for the selected clip.
+ * Returns the actual file path on disk so ffmpeg can extract frames.
+ */
+function getSelectedClipMediaPath() {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return JSON.stringify({ error: 'No active sequence' });
+
+    var selection = seq.getSelection();
+    if (!selection || selection.length === 0) {
+      return JSON.stringify({ error: 'No clip selected' });
+    }
+
+    // Take the first selected clip
+    var clip = selection[0];
+    var mediaPath = '';
+    var clipName = clip.name || 'Untitled';
+
+    // Get the source media file path
+    if (clip.projectItem && clip.projectItem.getMediaPath) {
+      mediaPath = clip.projectItem.getMediaPath();
+    }
+
+    if (!mediaPath) {
+      return JSON.stringify({ error: 'Could not get media path for clip: ' + clipName });
+    }
+
+    // Get timing info (accounting for cuts)
+    var startTime = clip.start ? clip.start.seconds : 0;
+    var endTime = clip.end ? clip.end.seconds : 0;
+    var inPoint = clip.inPoint ? clip.inPoint.seconds : 0;
+    var outPoint = clip.outPoint ? clip.outPoint.seconds : 0;
+    var duration = endTime - startTime;
+
+    return JSON.stringify({
+      success: true,
+      mediaPath: mediaPath,
+      clipName: clipName,
+      startTime: startTime,
+      endTime: endTime,
+      inPoint: inPoint,
+      outPoint: outPoint,
+      duration: duration
+    });
+  } catch (e) {
+    return JSON.stringify({ error: 'getSelectedClipMediaPath failed: ' + e.message });
+  }
+}
+
+
+// ========== VFX: IMPORT AND PLACE VIDEO ==========
+
+/**
+ * Import a generated VFX video and place it above the original clip.
+ * @param {string} videoPath - Path to the generated video file
+ * @param {number} startSeconds - Where to place it on the timeline (seconds)
+ */
+function importAndPlaceAbove(videoPath, startSeconds) {
+  try {
+    var seq = app.project.activeSequence;
+    if (!seq) return JSON.stringify({ error: 'No active sequence' });
+
+    // Import the video into the project
+    var importOk = app.project.importFiles([videoPath], true, app.project.rootItem, false);
+    if (!importOk) {
+      return JSON.stringify({ error: 'Failed to import video file' });
+    }
+
+    // Find the imported item (should be the most recently added)
+    var rootItem = app.project.rootItem;
+    var importedItem = null;
+    for (var i = rootItem.children.numItems - 1; i >= 0; i--) {
+      var child = rootItem.children[i];
+      if (child.name && child.getMediaPath && child.getMediaPath() === videoPath) {
+        importedItem = child;
+        break;
+      }
+    }
+
+    if (!importedItem) {
+      // Fallback: get the last imported item
+      if (rootItem.children.numItems > 0) {
+        importedItem = rootItem.children[rootItem.children.numItems - 1];
+      }
+    }
+
+    if (!importedItem) {
+      return JSON.stringify({ error: 'Could not find imported item in project' });
+    }
+
+    // Find the highest occupied video track, then place on track above it
+    var videoTracks = seq.videoTracks;
+    var targetTrackIdx = 1; // Default to V2
+
+    // Find which track the selected clip is on
+    var selection = seq.getSelection();
+    if (selection && selection.length > 0) {
+      for (var t = 0; t < videoTracks.numTracks; t++) {
+        var track = videoTracks[t];
+        for (var c = 0; c < track.clips.numItems; c++) {
+          if (track.clips[c].name === selection[0].name) {
+            targetTrackIdx = t + 1; // Place on track above
+            break;
+          }
+        }
+      }
+    }
+
+    // Ensure target track exists
+    if (targetTrackIdx >= videoTracks.numTracks) {
+      seq.addTracks(targetTrackIdx - videoTracks.numTracks + 1, 0, 0);
+    }
+
+    // Insert the clip on the target track
+    var targetTrack = videoTracks[targetTrackIdx];
+    var insertTime = new Time();
+    insertTime.seconds = startSeconds;
+
+    targetTrack.insertClip(importedItem, insertTime);
+
+    return JSON.stringify({
+      success: true,
+      message: 'VFX video placed on V' + (targetTrackIdx + 1),
+      trackIndex: targetTrackIdx
+    });
+  } catch (e) {
+    return JSON.stringify({ error: 'importAndPlaceAbove failed: ' + e.message });
+  }
+}

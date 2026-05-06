@@ -20,166 +20,220 @@
       <button class="btn-settings" id="btnSettings" title="Settings">⚙</button>
     </div>
 
-    <!-- ==================== PAGE 1: SETUP ==================== -->
-    <div class="main-content page" id="pageSetup">
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="editor" id="tabBtnEditor">✂ AI Editor</button>
+      <button class="tab-btn" data-tab="vfx" id="tabBtnVFX">🎬 VFX Studio</button>
+    </div>
 
-      <!-- Clip Info Card -->
-      <div class="card" id="clipInfoCard">
-        <div class="card-header">
-          <span class="card-title">Selected Clips</span>
-          <button class="btn-refresh" id="btnRefresh">↻ Refresh</button>
+    <!-- ============================================ -->
+    <!-- TAB 1: AI EDITOR (existing functionality)    -->
+    <!-- ============================================ -->
+    <div class="tab-content active" id="tabEditor">
+
+      <!-- PAGE 1: SETUP -->
+      <div class="main-content page" id="pageSetup">
+        <div class="card" id="clipInfoCard">
+          <div class="card-header">
+            <span class="card-title">Selected Clips</span>
+            <button class="btn-refresh" id="btnRefresh">↻ Refresh</button>
+          </div>
+          <div id="clipInfoContent">
+            <div class="empty-state">
+              <div class="empty-state-icon">🎬</div>
+              <div class="empty-state-text">Select clips on the timeline<br>then click Refresh</div>
+            </div>
+          </div>
         </div>
-        <div id="clipInfoContent">
-          <div class="empty-state">
-            <div class="empty-state-icon">🎬</div>
-            <div class="empty-state-text">Select clips on the timeline<br>then click Refresh</div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Story Prompt</span></div>
+          <div class="form-group">
+            <textarea class="form-textarea" id="promptInput"
+              placeholder="Describe the story you want to create..."></textarea>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Target Duration</span></div>
+          <div class="duration-control">
+            <div class="duration-header">
+              <span class="form-label">Desired Length</span>
+              <span class="duration-value" id="durationDisplay">2:00</span>
+            </div>
+            <input type="range" class="duration-slider" id="durationSlider" min="10" max="600" value="120" step="5">
+            <div class="duration-labels"><span>10s</span><span>10min</span></div>
+          </div>
+        </div>
+        <button class="btn-primary" id="btnCreateCut" disabled>✂ Create a Cut</button>
+      </div>
+
+      <!-- PAGE 2: PROCESSING + REVIEW -->
+      <div class="main-content page" id="pageProcess" style="display:none;">
+        <button class="btn-back" id="btnBack">← Back to Setup</button>
+        <div class="card progress-section active" id="progressSection">
+          <div class="card-header">
+            <span class="card-title">Processing</span>
+            <span class="spinner" id="progressSpinner"></span>
+          </div>
+          <div class="progress-steps">
+            <div class="progress-step pending" id="step1"><div class="step-indicator">1</div><div class="step-content"><div class="step-title">Exporting Audio</div><div class="step-detail" id="step1Detail">Waiting...</div></div></div>
+            <div class="progress-step pending" id="step2"><div class="step-indicator">2</div><div class="step-content"><div class="step-title">Transcribing Speech</div><div class="step-detail" id="step2Detail">Waiting...</div></div></div>
+            <div class="progress-step pending" id="step3"><div class="step-indicator">3</div><div class="step-content"><div class="step-title">Generating Story Edit</div><div class="step-detail" id="step3Detail">Waiting...</div></div></div>
+            <div class="progress-step pending" id="step4"><div class="step-indicator">4</div><div class="step-content"><div class="step-title">Applying Cuts</div><div class="step-detail" id="step4Detail">Waiting...</div></div></div>
+          </div>
+        </div>
+        <div class="card transcript-section" id="transcriptSection">
+          <div class="card-header">
+            <span class="card-title">Review Transcript</span>
+            <span class="card-badge" id="transcriptBadge">—</span>
+          </div>
+          <div class="transcript-search">
+            <input type="text" class="form-input transcript-search-input" id="transcriptSearch" placeholder="🔍 Search transcript...">
+          </div>
+          <div class="transcript-stats" id="transcriptStats">
+            <div class="stat-item stat-kept"><span class="stat-num" id="statKept">0</span><span class="stat-label">Kept</span></div>
+            <div class="stat-item stat-removed"><span class="stat-num" id="statRemoved">0</span><span class="stat-label">Removed</span></div>
+            <div class="stat-item stat-duration"><span class="stat-num" id="statDuration">0s</span><span class="stat-label">Final</span></div>
+            <div class="stat-item stat-saved"><span class="stat-num" id="statSaved">0s</span><span class="stat-label">Saved</span></div>
+          </div>
+          <div class="story-summary">
+            <div class="story-summary-title">AI Story Summary</div>
+            <div class="story-summary-text" id="storySummaryText">—</div>
+          </div>
+          <div class="transcript-list" id="transcriptList"></div>
+          <div class="action-buttons">
+            <button class="btn-approve" id="btnApplyCuts">✂ Apply Cuts</button>
+            <button class="btn-undo" id="btnUndo">↩ Undo All</button>
+          </div>
+          <div class="delete-section" id="deleteSection">
+            <button class="btn-delete-final" id="btnDeleteCuts">🗑 Delete Removed Clips</button>
+            <div class="delete-note">This will permanently remove disabled clips and close gaps. It cannot be undone.</div>
           </div>
         </div>
       </div>
-
-      <!-- Prompt Card -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Story Prompt</span>
-        </div>
-        <div class="form-group">
-          <textarea class="form-textarea" id="promptInput"
-            placeholder="Describe the story you want to create... e.g. 'Create a highlight reel focusing on the key moments and emotional beats'"
-          ></textarea>
-        </div>
-      </div>
-
-      <!-- Duration Card -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">Target Duration</span>
-        </div>
-        <div class="duration-control">
-          <div class="duration-header">
-            <span class="form-label">Desired Length</span>
-            <span class="duration-value" id="durationDisplay">2:00</span>
-          </div>
-          <input type="range" class="duration-slider" id="durationSlider"
-            min="10" max="600" value="120" step="5">
-          <div class="duration-labels">
-            <span>10s</span>
-            <span>10min</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Create Cut Button -->
-      <button class="btn-primary" id="btnCreateCut" disabled>
-        ✂ Create a Cut
-      </button>
 
     </div>
 
-    <!-- ==================== PAGE 2: PROCESSING + REVIEW ==================== -->
-    <div class="main-content page" id="pageProcess" style="display:none;">
+    <!-- ============================================ -->
+    <!-- TAB 2: VFX STUDIO (new feature)             -->
+    <!-- ============================================ -->
+    <div class="tab-content" id="tabVFX">
 
-      <!-- Back Button -->
-      <button class="btn-back" id="btnBack">← Back to Setup</button>
+      <!-- VFX SETUP PAGE -->
+      <div class="main-content vfx-page active" id="vfxPageSetup">
 
-      <!-- Progress Section -->
-      <div class="card progress-section active" id="progressSection">
-        <div class="card-header">
-          <span class="card-title">Processing</span>
-          <span class="spinner" id="progressSpinner"></span>
+        <!-- Clip Selection -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Selected Clip</span>
+            <button class="btn-refresh" id="vfxBtnRefresh">↻ Refresh</button>
+          </div>
+          <div id="vfxClipInfo">
+            <div class="empty-state">
+              <div class="empty-state-icon">🎬</div>
+              <div class="empty-state-text">Select a clip on the timeline<br>then click Refresh</div>
+            </div>
+          </div>
         </div>
-        <div class="progress-steps">
-          <div class="progress-step pending" id="step1">
-            <div class="step-indicator">1</div>
-            <div class="step-content">
-              <div class="step-title">Exporting Audio</div>
-              <div class="step-detail" id="step1Detail">Waiting...</div>
-            </div>
+
+        <!-- Effect Prompt -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Effect Prompt</span></div>
+          <div class="form-group">
+            <textarea class="form-textarea" id="vfxPromptInput"
+              placeholder="Describe the VFX effect you want... e.g. 'Change the background to a futuristic cyberpunk city'"></textarea>
           </div>
-          <div class="progress-step pending" id="step2">
-            <div class="step-indicator">2</div>
-            <div class="step-content">
-              <div class="step-title">Transcribing Speech</div>
-              <div class="step-detail" id="step2Detail">Waiting...</div>
-            </div>
+        </div>
+
+        <!-- Quick Templates -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">Quick Templates</span></div>
+          <div class="template-grid" id="templateGrid">
+            <button class="template-btn" data-prompt="Change the background to a futuristic cyberpunk cityscape with neon lights and rain reflections">
+              <span class="template-icon">🏙</span><span class="template-label">Cyberpunk BG</span>
+            </button>
+            <button class="template-btn" data-prompt="Add realistic fire and flame effects around the subject with glowing embers">
+              <span class="template-icon">🔥</span><span class="template-label">Add Fire</span>
+            </button>
+            <button class="template-btn" data-prompt="Make this look like a cinematic Hollywood film with dramatic lighting, shallow depth of field, and rich color grading">
+              <span class="template-icon">🎬</span><span class="template-label">Cinematic</span>
+            </button>
+            <button class="template-btn" data-prompt="Change the lighting to dramatic golden hour with warm tones, long shadows, and volumetric light rays">
+              <span class="template-icon">💡</span><span class="template-label">Golden Hour</span>
+            </button>
+            <button class="template-btn" data-prompt="Add heavy rain with wet reflections on the ground, water droplets, and moody atmosphere">
+              <span class="template-icon">🌧</span><span class="template-label">Add Rain</span>
+            </button>
+            <button class="template-btn" data-prompt="Add falling snow with a cold winter atmosphere, frost on surfaces, and foggy breath">
+              <span class="template-icon">❄</span><span class="template-label">Add Snow</span>
+            </button>
+            <button class="template-btn" data-prompt="Change the background to a beautiful ocean sunset with warm pink and orange sky colors">
+              <span class="template-icon">🌅</span><span class="template-label">Sunset BG</span>
+            </button>
+            <button class="template-btn" data-prompt="Change the background to outer space with stars, nebula, and cosmic dust particles">
+              <span class="template-icon">🌌</span><span class="template-label">Space BG</span>
+            </button>
+            <button class="template-btn" data-prompt="Change the background to a vast golden desert landscape with sand dunes and heat haze">
+              <span class="template-icon">🏜</span><span class="template-label">Desert BG</span>
+            </button>
           </div>
-          <div class="progress-step pending" id="step3">
-            <div class="step-indicator">3</div>
-            <div class="step-content">
-              <div class="step-title">Generating Story Edit</div>
-              <div class="step-detail" id="step3Detail">Waiting...</div>
-            </div>
+        </div>
+
+        <!-- Generate Button -->
+        <button class="btn-primary vfx-generate" id="vfxBtnGenerate" disabled>🚀 Generate Preview</button>
+      </div>
+
+      <!-- VFX PREVIEW PAGE -->
+      <div class="main-content vfx-page" id="vfxPagePreview">
+        <button class="btn-back" id="vfxBtnBackToSetup">← Back to Setup</button>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">AI Preview</span>
+            <span class="card-badge" id="vfxPreviewStatus">Generating...</span>
           </div>
-          <div class="progress-step pending" id="step4">
-            <div class="step-indicator">4</div>
-            <div class="step-content">
-              <div class="step-title">Applying Cuts</div>
-              <div class="step-detail" id="step4Detail">Waiting...</div>
+
+          <!-- Progress indicator -->
+          <div class="vfx-progress" id="vfxProgressArea">
+            <div class="spinner"></div>
+            <div class="vfx-progress-text" id="vfxProgressText">Extracting frame...</div>
+          </div>
+
+          <!-- Preview image -->
+          <div class="vfx-preview-image" id="vfxPreviewContainer" style="display:none;">
+            <img id="vfxPreviewImg" src="" alt="AI Preview">
+          </div>
+        </div>
+
+        <!-- Approve / Regenerate -->
+        <div class="vfx-preview-actions" id="vfxPreviewActions" style="display:none;">
+          <button class="btn-primary" id="vfxBtnApprove">✓ Approve and Generate Video</button>
+          <button class="btn-secondary" id="vfxBtnRegenerate">↻ Regenerate</button>
+        </div>
+      </div>
+
+      <!-- VFX QUEUE PAGE -->
+      <div class="main-content vfx-page" id="vfxPageQueue">
+        <button class="btn-back" id="vfxBtnBackFromQueue">← Back</button>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">VFX Queue</span>
+            <span class="card-badge" id="vfxQueueBadge">0 tasks</span>
+          </div>
+          <div class="vfx-queue-list" id="vfxQueueList">
+            <div class="empty-state">
+              <div class="empty-state-icon">📋</div>
+              <div class="empty-state-text">No tasks yet</div>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- Transcript Review Section -->
-      <div class="card transcript-section" id="transcriptSection">
-        <div class="card-header">
-          <span class="card-title">Review Transcript</span>
-          <span class="card-badge" id="transcriptBadge">—</span>
-        </div>
-
-        <!-- Search Bar -->
-        <div class="transcript-search">
-          <input type="text" class="form-input transcript-search-input" id="transcriptSearch"
-            placeholder="🔍 Search transcript...">
-        </div>
-
-        <!-- Stats Bar -->
-        <div class="transcript-stats" id="transcriptStats">
-          <div class="stat-item stat-kept">
-            <span class="stat-num" id="statKept">0</span>
-            <span class="stat-label">Kept</span>
-          </div>
-          <div class="stat-item stat-removed">
-            <span class="stat-num" id="statRemoved">0</span>
-            <span class="stat-label">Removed</span>
-          </div>
-          <div class="stat-item stat-duration">
-            <span class="stat-num" id="statDuration">0s</span>
-            <span class="stat-label">Final</span>
-          </div>
-          <div class="stat-item stat-saved">
-            <span class="stat-num" id="statSaved">0s</span>
-            <span class="stat-label">Saved</span>
-          </div>
-        </div>
-
-        <!-- AI Summary -->
-        <div class="story-summary">
-          <div class="story-summary-title">AI Story Summary</div>
-          <div class="story-summary-text" id="storySummaryText">—</div>
-        </div>
-
-        <!-- Segment List -->
-        <div class="transcript-list" id="transcriptList"></div>
-
-        <!-- Action buttons -->
-        <div class="action-buttons">
-          <button class="btn-approve" id="btnApplyCuts">✂ Apply Cuts</button>
-          <button class="btn-undo" id="btnUndo">↩ Undo All</button>
-        </div>
-
-        <!-- Delete button (shown after Apply) -->
-        <div class="delete-section" id="deleteSection">
-          <button class="btn-delete-final" id="btnDeleteCuts">🗑 Delete Removed Clips</button>
-          <div class="delete-note">This will permanently remove disabled clips and close gaps. It cannot be undone.</div>
-        </div>
-      </div>
-
 
     </div>
 
     <!-- Footer -->
     <div class="footer">
-      <span class="footer-text">Editly AI Editor v1.3</span>
+      <span class="footer-text">Editly AI Editor v2.0</span>
       <div class="footer-status">
         <span class="status-dot" id="statusDot"></span>
         <span id="statusText">Disconnected</span>
@@ -193,18 +247,17 @@
           Settings
           <button class="settings-close" id="btnSettingsClose">✕</button>
         </div>
+        <div class="settings-section-title">AI Editor</div>
         <div class="settings-group">
           <div class="form-group">
             <label class="form-label">ElevenLabs API Key</label>
-            <input type="password" class="form-input" id="settingsApiKey"
-              placeholder="sk_...">
+            <input type="password" class="form-input" id="settingsApiKey" placeholder="sk_...">
           </div>
         </div>
         <div class="settings-group">
           <div class="form-group">
             <label class="form-label">Anthropic API Key</label>
-            <input type="password" class="form-input" id="settingsSttModel"
-              placeholder="sk-ant-...">
+            <input type="password" class="form-input" id="settingsSttModel" placeholder="sk-ant-...">
           </div>
         </div>
         <div class="settings-group">
@@ -215,6 +268,19 @@
               <option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
               <option value="claude-opus-4-6">Claude Opus 4.6</option>
             </select>
+          </div>
+        </div>
+        <div class="settings-section-title">VFX Studio</div>
+        <div class="settings-group">
+          <div class="form-group">
+            <label class="form-label">Gemini API Key</label>
+            <input type="password" class="form-input" id="settingsGeminiKey" placeholder="AIza...">
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="form-group">
+            <label class="form-label">Kling API Key</label>
+            <input type="password" class="form-input" id="settingsKlingKey" placeholder="Bearer token...">
           </div>
         </div>
         <button class="btn-save-settings" id="btnSaveSettings">Save Settings</button>
@@ -229,9 +295,12 @@
   <script src="js/utils/audio-utils.js"></script>
   <script src="js/utils/timeline-state.js"></script>
   <script src="js/api/silence-detect.js"></script>
-  <!-- ElevenLabs + Claude APIs -->
   <script src="js/api/transcribe.js"></script>
   <script src="js/api/ai-editor.js"></script>
+  <!-- VFX APIs -->
+  <script src="js/api/gemini-image.js"></script>
+  <script src="js/api/kling-video.js"></script>
+  <script src="js/vfx-controller.js"></script>
   <!-- Auto-updater -->
   <script src="js/updater.js"></script>
   <script src="js/main.js"></script>

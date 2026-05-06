@@ -1,5 +1,7 @@
 {
   "elevenlabs_api_key": "",
   "anthropic_api_key": "",
-  "ai_model": "claude-opus-4-7"
+  "ai_model": "claude-opus-4-7",
+  "gemini_api_key": "",
+  "kling_api_key": ""
 }

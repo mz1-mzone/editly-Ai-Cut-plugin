@@ -23,8 +23,15 @@
   var settings = {
     elevenlabs_api_key: '',
     anthropic_api_key: '',
-    ai_model: 'claude-opus-4-7'
+    ai_model: 'claude-opus-4-7',
+    gemini_api_key: '',
+    kling_api_key: ''
   };
+
+  // VFX state
+  var vfxClipData = null;
+  var vfxPreviewData = null;
+  var vfxIsProcessing = false;
 
   // ==================== DOM REFERENCES ====================
   var els = {
@@ -57,6 +64,34 @@
     // Delete final
     deleteSection: document.getElementById('deleteSection'),
     btnDeleteCuts: document.getElementById('btnDeleteCuts'),
+    // Tabs
+    tabBtnEditor: document.getElementById('tabBtnEditor'),
+    tabBtnVFX: document.getElementById('tabBtnVFX'),
+    tabEditor: document.getElementById('tabEditor'),
+    tabVFX: document.getElementById('tabVFX'),
+    // VFX Setup
+    vfxBtnRefresh: document.getElementById('vfxBtnRefresh'),
+    vfxClipInfo: document.getElementById('vfxClipInfo'),
+    vfxPromptInput: document.getElementById('vfxPromptInput'),
+    templateGrid: document.getElementById('templateGrid'),
+    vfxBtnGenerate: document.getElementById('vfxBtnGenerate'),
+    // VFX Preview
+    vfxPageSetup: document.getElementById('vfxPageSetup'),
+    vfxPagePreview: document.getElementById('vfxPagePreview'),
+    vfxPageQueue: document.getElementById('vfxPageQueue'),
+    vfxBtnBackToSetup: document.getElementById('vfxBtnBackToSetup'),
+    vfxProgressArea: document.getElementById('vfxProgressArea'),
+    vfxProgressText: document.getElementById('vfxProgressText'),
+    vfxPreviewContainer: document.getElementById('vfxPreviewContainer'),
+    vfxPreviewImg: document.getElementById('vfxPreviewImg'),
+    vfxPreviewActions: document.getElementById('vfxPreviewActions'),
+    vfxPreviewStatus: document.getElementById('vfxPreviewStatus'),
+    vfxBtnApprove: document.getElementById('vfxBtnApprove'),
+    vfxBtnRegenerate: document.getElementById('vfxBtnRegenerate'),
+    // VFX Queue
+    vfxBtnBackFromQueue: document.getElementById('vfxBtnBackFromQueue'),
+    vfxQueueList: document.getElementById('vfxQueueList'),
+    vfxQueueBadge: document.getElementById('vfxQueueBadge'),
     // Settings
     btnSettings: document.getElementById('btnSettings'),
     settingsOverlay: document.getElementById('settingsOverlay'),
@@ -64,6 +99,8 @@
     settingsApiKey: document.getElementById('settingsApiKey'),
     settingsSttModel: document.getElementById('settingsSttModel'),
     settingsAiModel: document.getElementById('settingsAiModel'),
+    settingsGeminiKey: document.getElementById('settingsGeminiKey'),
+    settingsKlingKey: document.getElementById('settingsKlingKey'),
     btnSaveSettings: document.getElementById('btnSaveSettings'),
     statusDot: document.getElementById('statusDot'),
     statusText: document.getElementById('statusText'),
@@ -113,6 +150,8 @@
         settings.elevenlabs_api_key = loaded.elevenlabs_api_key || '';
         settings.anthropic_api_key = loaded.anthropic_api_key || '';
         settings.ai_model = loaded.ai_model || 'claude-opus-4-7';
+        settings.gemini_api_key = loaded.gemini_api_key || '';
+        settings.kling_api_key = loaded.kling_api_key || '';
       }
     } catch (e) {
       console.warn('Could not load settings:', e.message);
@@ -122,6 +161,8 @@
     els.settingsApiKey.value = settings.elevenlabs_api_key;
     if (els.settingsSttModel) els.settingsSttModel.value = settings.anthropic_api_key;
     if (els.settingsAiModel) els.settingsAiModel.value = settings.ai_model;
+    if (els.settingsGeminiKey) els.settingsGeminiKey.value = settings.gemini_api_key;
+    if (els.settingsKlingKey) els.settingsKlingKey.value = settings.kling_api_key;
 
     updateConnectionStatus();
     initApiClients();
@@ -131,6 +172,8 @@
     settings.elevenlabs_api_key = els.settingsApiKey.value.trim();
     if (els.settingsSttModel) settings.anthropic_api_key = els.settingsSttModel.value.trim();
     if (els.settingsAiModel) settings.ai_model = els.settingsAiModel.value;
+    if (els.settingsGeminiKey) settings.gemini_api_key = els.settingsGeminiKey.value.trim();
+    if (els.settingsKlingKey) settings.kling_api_key = els.settingsKlingKey.value.trim();
 
     try {
       var extPath = csInterface.getSystemPath(SystemPath.EXTENSION);
@@ -712,8 +755,218 @@
     }, 4000);
   }
 
+  // ==================== TAB SWITCHING ====================
+
+  function switchTab(tabName) {
+    els.tabBtnEditor.classList.toggle('active', tabName === 'editor');
+    els.tabBtnVFX.classList.toggle('active', tabName === 'vfx');
+    els.tabEditor.classList.toggle('active', tabName === 'editor');
+    els.tabVFX.classList.toggle('active', tabName === 'vfx');
+  }
+
+  // ==================== VFX STUDIO ====================
+
+  function showVFXPage(pageName) {
+    els.vfxPageSetup.classList.toggle('active', pageName === 'setup');
+    els.vfxPagePreview.classList.toggle('active', pageName === 'preview');
+    els.vfxPageQueue.classList.toggle('active', pageName === 'queue');
+  }
+
+  function vfxRefreshClip() {
+    evalScript('getSelectedClipMediaPath()')
+      .then(function (result) {
+        if (result.error) {
+          els.vfxClipInfo.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠</div>' +
+            '<div class="empty-state-text">' + escapeHtml(result.error) + '</div></div>';
+          els.vfxBtnGenerate.disabled = true;
+          vfxClipData = null;
+          return;
+        }
+
+        vfxClipData = result;
+        var dur = result.duration || 0;
+        var durStr = Math.floor(dur / 60) + ':' + ('0' + Math.floor(dur % 60)).slice(-2);
+        var splits = KlingVideo.calculateSplits(dur, 30);
+        var badgeClass = splits.length > 1 ? 'warn' : 'ok';
+        var badgeText = splits.length > 1 ? splits.length + ' tasks' : 'Ready';
+
+        els.vfxClipInfo.innerHTML =
+          '<div class="vfx-clip-info">' +
+            '<div>' +
+              '<div class="vfx-clip-name">' + escapeHtml(result.clipName) + '</div>' +
+              '<div class="vfx-clip-meta">' + durStr + ' duration</div>' +
+            '</div>' +
+            '<span class="vfx-clip-badge ' + badgeClass + '">' + badgeText + '</span>' +
+          '</div>';
+
+        if (splits.length > 1) {
+          els.vfxClipInfo.innerHTML += '<div class="vfx-clip-meta" style="font-size:10px;color:var(--warning);padding:4px 0">' +
+            '⚠ Clip is longer than 30s. It will be split into ' + splits.length + ' separate tasks.</div>';
+        }
+
+        updateVFXGenerateButton();
+      })
+      .catch(function (err) {
+        els.vfxClipInfo.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✕</div>' +
+          '<div class="empty-state-text">' + escapeHtml(err.message) + '</div></div>';
+        els.vfxBtnGenerate.disabled = true;
+      });
+  }
+
+  function updateVFXGenerateButton() {
+    var hasClip = !!vfxClipData;
+    var hasPrompt = els.vfxPromptInput.value.trim().length > 0;
+    var hasGeminiKey = !!settings.gemini_api_key;
+    els.vfxBtnGenerate.disabled = !(hasClip && hasPrompt && hasGeminiKey);
+  }
+
+  function vfxGeneratePreview() {
+    if (vfxIsProcessing || !vfxClipData) return;
+    vfxIsProcessing = true;
+
+    var prompt = els.vfxPromptInput.value.trim();
+    if (!prompt) { showToast('Enter an effect prompt', 'error'); vfxIsProcessing = false; return; }
+    if (!settings.gemini_api_key) { showToast('Configure Gemini API key in Settings', 'error'); vfxIsProcessing = false; return; }
+
+    // Show preview page with loading
+    showVFXPage('preview');
+    els.vfxProgressArea.style.display = 'flex';
+    els.vfxPreviewContainer.style.display = 'none';
+    els.vfxPreviewActions.style.display = 'none';
+    els.vfxPreviewStatus.textContent = 'Generating...';
+    els.vfxPreviewStatus.className = 'card-badge';
+
+    VFXController.generatePreview({
+      clip: vfxClipData,
+      mediaPath: vfxClipData.mediaPath,
+      prompt: prompt,
+      geminiApiKey: settings.gemini_api_key,
+      imageModel: 'gemini-3-pro-image-preview',
+      onProgress: function (p) {
+        els.vfxProgressText.textContent = p.detail || 'Processing...';
+      }
+    })
+    .then(function (result) {
+      if (!result.success) throw new Error(result.error);
+
+      vfxPreviewData = result;
+      els.vfxProgressArea.style.display = 'none';
+      els.vfxPreviewContainer.style.display = 'block';
+      els.vfxPreviewImg.src = 'data:image/png;base64,' + result.imageBase64;
+      els.vfxPreviewActions.style.display = 'flex';
+      els.vfxPreviewStatus.textContent = 'Preview Ready';
+      els.vfxPreviewStatus.className = 'card-badge ready';
+    })
+    .catch(function (err) {
+      els.vfxProgressArea.style.display = 'none';
+      els.vfxPreviewStatus.textContent = 'Error';
+      els.vfxPreviewStatus.className = 'card-badge error';
+      els.vfxPreviewContainer.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✕</div>' +
+        '<div class="empty-state-text">' + escapeHtml(err.message) + '</div></div>';
+      els.vfxPreviewContainer.style.display = 'block';
+      els.vfxPreviewActions.style.display = 'none';
+      showToast('Preview failed: ' + err.message, 'error');
+    })
+    .then(function () { vfxIsProcessing = false; });
+  }
+
+  function vfxApproveAndGenerate() {
+    if (!vfxPreviewData || !vfxClipData) return;
+    if (!settings.kling_api_key) {
+      showToast('Configure Kling API key in Settings', 'error');
+      return;
+    }
+
+    var dur = vfxClipData.duration || 0;
+    var splits = KlingVideo.calculateSplits(dur, 30);
+    var prompt = els.vfxPromptInput.value.trim();
+
+    // Create tasks for each chunk
+    for (var i = 0; i < splits.length; i++) {
+      VFXController.createTask({
+        clipName: vfxClipData.clipName,
+        chunkIndex: i,
+        totalChunks: splits.length,
+        startTime: vfxClipData.inPoint + splits[i].start,
+        endTime: vfxClipData.inPoint + splits[i].end,
+        duration: splits[i].duration,
+        prompt: prompt,
+        imageBase64: vfxPreviewData.imageBase64,
+        mediaPath: vfxClipData.mediaPath,
+        klingApiKey: settings.kling_api_key
+      });
+    }
+
+    // Switch to queue page and start processing
+    showVFXPage('queue');
+    renderVFXQueue();
+    showToast(splits.length + ' task(s) queued for video generation', 'success');
+
+    VFXController.processQueue(function (task) {
+      renderVFXQueue();
+      if (task.status === 'done') {
+        showToast(task.clipName + ' chunk ' + (task.chunkIndex + 1) + ' complete!', 'success');
+      } else if (task.status === 'error') {
+        showToast('Task error: ' + task.error, 'error');
+      }
+    }, evalScript);
+  }
+
+  function renderVFXQueue() {
+    var queue = VFXController.getQueue();
+    if (queue.length === 0) {
+      els.vfxQueueList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div>' +
+        '<div class="empty-state-text">No tasks yet</div></div>';
+      els.vfxQueueBadge.textContent = '0 tasks';
+      return;
+    }
+
+    var statusIcons = { queued: '⚪', extracting: '🟡', submitting: '🟡', processing: '🟡', downloading: '🟡', importing: '🟡', done: '🟢', error: '🔴' };
+    var statusLabels = { queued: 'Queued', extracting: 'Extracting video...', submitting: 'Submitting to Kling...', processing: 'Generating video...', downloading: 'Downloading...', importing: 'Importing to timeline...', done: 'Complete', error: 'Error' };
+
+    var html = '';
+    var doneCount = 0;
+    for (var i = 0; i < queue.length; i++) {
+      var t = queue[i];
+      if (t.status === 'done') doneCount++;
+      var icon = statusIcons[t.status] || '⚪';
+      var label = statusLabels[t.status] || t.status;
+      if (t.status === 'error' && t.error) label = t.error;
+
+      html += '<div class="vfx-queue-item" data-task-id="' + t.id + '">' +
+        '<span class="queue-status-icon">' + icon + '</span>' +
+        '<div class="queue-info">' +
+          '<div class="queue-name">' + escapeHtml(t.clipName) +
+            (t.totalChunks > 1 ? ' (' + (t.chunkIndex + 1) + '/' + t.totalChunks + ')' : '') + '</div>' +
+          '<div class="queue-detail">' + escapeHtml(label) + '</div>' +
+          (t.status !== 'done' && t.status !== 'error' && t.status !== 'queued' ?
+            '<div class="queue-progress"><div class="queue-progress-bar" style="width:' + t.progress + '%"></div></div>' : '') +
+        '</div>' +
+        (t.status === 'error' ? '<button class="queue-btn-retry" data-retry-id="' + t.id + '">Retry</button>' : '') +
+      '</div>';
+    }
+
+    els.vfxQueueList.innerHTML = html;
+    els.vfxQueueBadge.textContent = doneCount + '/' + queue.length + ' done';
+
+    // Bind retry buttons
+    els.vfxQueueList.querySelectorAll('.queue-btn-retry').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var taskId = this.getAttribute('data-retry-id');
+        VFXController.retryTask(taskId);
+        renderVFXQueue();
+        VFXController.processQueue(function () { renderVFXQueue(); }, evalScript);
+      });
+    });
+  }
+
   // ==================== EVENT LISTENERS ====================
 
+  // Tab switching
+  els.tabBtnEditor.addEventListener('click', function () { switchTab('editor'); });
+  els.tabBtnVFX.addEventListener('click', function () { switchTab('vfx'); });
+
+  // AI Editor events
   els.btnRefresh.addEventListener('click', refreshClipInfo);
   els.durationSlider.addEventListener('input', updateDurationDisplay);
   els.btnCreateCut.addEventListener('click', createCut);
@@ -723,11 +976,40 @@
   els.btnBack.addEventListener('click', function () {
     if (!isProcessing) showPage('setup');
   });
+
+  // VFX Studio events
+  els.vfxBtnRefresh.addEventListener('click', vfxRefreshClip);
+  els.vfxPromptInput.addEventListener('input', updateVFXGenerateButton);
+  els.vfxBtnGenerate.addEventListener('click', vfxGeneratePreview);
+  els.vfxBtnApprove.addEventListener('click', vfxApproveAndGenerate);
+  els.vfxBtnRegenerate.addEventListener('click', function () {
+    showVFXPage('setup');
+  });
+  els.vfxBtnBackToSetup.addEventListener('click', function () {
+    if (!vfxIsProcessing) showVFXPage('setup');
+  });
+  els.vfxBtnBackFromQueue.addEventListener('click', function () {
+    showVFXPage('setup');
+  });
+
+  // Template buttons
+  els.templateGrid.querySelectorAll('.template-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var prompt = this.getAttribute('data-prompt');
+      els.vfxPromptInput.value = prompt;
+      // Highlight selected template
+      els.templateGrid.querySelectorAll('.template-btn').forEach(function (b) { b.classList.remove('selected'); });
+      this.classList.add('selected');
+      updateVFXGenerateButton();
+    });
+  });
+
+  // Settings
   els.btnSettings.addEventListener('click', openSettings);
   els.btnSettingsClose.addEventListener('click', closeSettings);
   els.btnSaveSettings.addEventListener('click', saveSettings);
 
-  // Search input — filter transcript in real-time
+  // Search input
   els.transcriptSearch.addEventListener('input', function () {
     currentSearchQuery = els.transcriptSearch.value.trim();
     renderTranscript();
