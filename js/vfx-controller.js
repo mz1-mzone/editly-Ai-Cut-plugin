@@ -285,8 +285,31 @@ var VFXController = (function () {
             var videoPath = outputDir + '/' + prefix + safeName + '_' + (task.chunkIndex + 1) + '_' + timestamp + '.mp4';
             task.videoPath = videoPath;
 
-            // Use Kling's download helper (it's just an HTTPS download)
-            return KlingVideo.downloadVideo(pollResult.videoUrl, videoPath);
+            // Download the generated video
+            if (isBeeble) {
+              // Beeble: use curl (handles CloudFront signed URLs better)
+              return new Promise(function (resolve, reject) {
+                var exec = require('child_process').exec;
+                console.log('[VFX][Beeble] Downloading via curl: ' + pollResult.videoUrl.substring(0, 80) + '...');
+                var cmd = 'curl -fSL -o "' + videoPath + '" "' + pollResult.videoUrl + '"';
+                exec(cmd, { maxBuffer: 100 * 1024 * 1024 }, function (err, stdout, stderr) {
+                  if (err) {
+                    reject(new Error('Beeble download failed: ' + (stderr || err.message).substring(0, 200)));
+                  } else {
+                    var fs = require('fs');
+                    var stat = fs.statSync(videoPath);
+                    console.log('[VFX][Beeble] Downloaded: ' + (stat.size / 1024 / 1024).toFixed(1) + ' MB');
+                    if (stat.size < 10000) {
+                      reject(new Error('Beeble download too small (' + stat.size + ' bytes) — likely failed'));
+                    } else {
+                      resolve(true);
+                    }
+                  }
+                });
+              });
+            } else {
+              return KlingVideo.downloadVideo(pollResult.videoUrl, videoPath);
+            }
           })
           .then(function () {
             // Step 4b: Re-encode for Beeble (output may be VP9/AV1, Premiere needs H.264)

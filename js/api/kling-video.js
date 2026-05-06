@@ -338,20 +338,41 @@ var KlingVideo = (function () {
       var fs = require('fs');
       var client = videoUrl.indexOf('https') === 0 ? https : http;
 
-      var file = fs.createWriteStream(outputPath);
       client.get(videoUrl, function (response) {
-        if (response.statusCode === 301 || response.statusCode === 302) {
+        // Follow redirects
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
           downloadVideo(response.headers.location, outputPath).then(resolve).catch(reject);
           return;
         }
+        // Reject on non-2xx
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          var errChunks = [];
+          response.on('data', function (c) { errChunks.push(c); });
+          response.on('end', function () {
+            var errBody = Buffer.concat(errChunks).toString().substring(0, 200);
+            reject(new Error('Download failed (HTTP ' + response.statusCode + '): ' + errBody));
+          });
+          return;
+        }
+        var file = fs.createWriteStream(outputPath);
         response.pipe(file);
         file.on('finish', function () {
           file.close();
-          console.log('[Kling] Video downloaded to: ' + outputPath);
+          // Verify file is a real video (not an HTML error page)
+          var stat = fs.statSync(outputPath);
+          if (stat.size < 10000) {
+            var head = fs.readFileSync(outputPath, 'utf8').substring(0, 50);
+            if (head.indexOf('<!DOCTYPE') >= 0 || head.indexOf('<HTML') >= 0 || head.indexOf('<html') >= 0) {
+              fs.unlinkSync(outputPath);
+              reject(new Error('Download returned HTML error page instead of video'));
+              return;
+            }
+          }
+          console.log('[Kling] Video downloaded to: ' + outputPath + ' (' + (stat.size / 1024 / 1024).toFixed(1) + ' MB)');
           resolve(true);
         });
       }).on('error', function (err) {
-        fs.unlink(outputPath, function () {});
+        try { fs.unlink(outputPath, function () {}); } catch (e) {}
         reject(new Error('Download failed: ' + err.message));
       });
     });
