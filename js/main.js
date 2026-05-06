@@ -847,15 +847,27 @@
     var fh = vfxClipData.frameHeight || 1080;
     var aspectPrompt = 'IMPORTANT: The output image MUST be exactly ' + fw + 'x' + fh + ' pixels (' + fw + ':' + fh + ' aspect ratio). ' + prompt;
 
-    VFXController.generatePreview({
-      clip: vfxClipData,
-      mediaPath: vfxClipData.mediaPath,
-      prompt: aspectPrompt,
-      geminiApiKey: settings.gemini_api_key,
-      imageModel: 'gemini-3-pro-image-preview',
-      onProgress: function (p) {
-        els.vfxProgressText.textContent = p.detail || 'Processing...';
+    // Get project folder for saving preview images next to the project
+    evalScript('getProjectFolder()')
+    .then(function (projResult) {
+      var outputDir = null;
+      if (projResult && projResult.success && projResult.folder) {
+        outputDir = projResult.folder + '/Editly_VFX';
       }
+      return outputDir;
+    })
+    .then(function (outputDir) {
+      return VFXController.generatePreview({
+        clip: vfxClipData,
+        mediaPath: vfxClipData.mediaPath,
+        prompt: aspectPrompt,
+        geminiApiKey: settings.gemini_api_key,
+        imageModel: 'gemini-3-pro-image-preview',
+        outputDir: outputDir,
+        onProgress: function (p) {
+          els.vfxProgressText.textContent = p.detail || 'Processing...';
+        }
+      });
     })
     .then(function (result) {
       if (!result.success) throw new Error(result.error);

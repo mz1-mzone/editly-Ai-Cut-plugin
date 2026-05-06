@@ -78,10 +78,11 @@ var VFXController = (function () {
    * Run the full VFX preview pipeline.
    */
   function generatePreview(opts) {
-    var tempDir = require('os').tmpdir() + '/editly_vfx';
-    try { require('fs').mkdirSync(tempDir, { recursive: true }); } catch (e) {}
+    var fs = require('fs');
+    var outputDir = opts.outputDir || require('os').tmpdir() + '/editly_vfx';
+    try { fs.mkdirSync(outputDir, { recursive: true }); } catch (e) {}
 
-    var framePath = tempDir + '/frame_' + Date.now() + '.jpg';
+    var framePath = outputDir + '/frame_' + Date.now() + '.jpg';
     var seekTime = opts.clip.inPoint || opts.clip.startTime || 0;
 
     if (opts.onProgress) opts.onProgress({ step: 'frame', detail: 'Extracting first frame...' });
@@ -95,8 +96,9 @@ var VFXController = (function () {
       .then(function (result) {
         if (!result.success) throw new Error(result.error || 'Image generation failed');
 
-        // Save preview image to temp dir for thumbnail use
-        var previewPath = tempDir + '/preview_' + Date.now() + '.png';
+        // Save preview image next to project file
+        var safeName = (opts.clip.clipName || opts.clip.name || 'preview').replace(/[^a-zA-Z0-9_-]/g, '_');
+        var previewPath = outputDir + '/VFX_Preview_' + safeName + '_' + Date.now().toString(36) + '.png';
         GeminiImage.saveBase64ToFile(result.imageBase64, previewPath);
 
         if (opts.onProgress) opts.onProgress({ step: 'preview', detail: 'Preview ready!' });
