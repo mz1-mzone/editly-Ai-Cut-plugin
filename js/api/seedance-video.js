@@ -149,19 +149,15 @@ var SeedanceVideo = (function () {
   function submitTask(opts) {
     var onProgress = opts.onProgress || function () {};
 
-    // Step 1: Upload all files to get public URLs
+    // Step 1: Upload files to get public URLs
+    // NOTE: We skip the AI-generated preview image for Seedance because
+    // its safety filter rejects images containing real human faces.
+    // The video reference provides enough visual context.
     var uploadPromises = [];
 
-    // Upload AI-generated reference image
-    onProgress({ detail: 'Uploading reference image...' });
-    uploadPromises.push(
-      uploadBase64(opts.referenceImageBase64, 'png').then(function (url) {
-        return { type: 'image', url: url, role: 'reference_image' };
-      })
-    );
-
-    // Upload extra user images
+    // Upload extra user-provided reference images only
     if (opts.extraImagePaths && opts.extraImagePaths.length > 0) {
+      onProgress({ detail: 'Uploading reference images...' });
       for (var i = 0; i < opts.extraImagePaths.length; i++) {
         (function (imgPath) {
           uploadPromises.push(
@@ -174,7 +170,7 @@ var SeedanceVideo = (function () {
     }
 
     // Upload source video
-    onProgress({ detail: 'Uploading video...' });
+    onProgress({ detail: 'Uploading video to Seedance...' });
     uploadPromises.push(
       uploadFile(opts.videoFilePath).then(function (url) {
         return { type: 'video', url: url, role: 'reference_video' };
