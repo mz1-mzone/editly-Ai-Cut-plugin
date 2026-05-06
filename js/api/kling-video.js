@@ -7,7 +7,7 @@
 var KlingVideo = (function () {
   'use strict';
 
-  var API_BASE = 'https://api-singapore.klingai.com/v1';
+  var API_BASE = 'https://api.klingai.com/v1';
   var POLL_INTERVALS = [10000, 15000, 20000, 30000, 30000]; // escalating poll times
   var MIN_DURATION = 3;
   var MAX_DURATION = 30;
