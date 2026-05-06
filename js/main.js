@@ -898,6 +898,9 @@
         clipName: vfxClipData.clipName,
         chunkIndex: i,
         totalChunks: splits.length,
+        // Timeline position (where to place the generated clip on the sequence)
+        timelineStart: vfxClipData.startTime + splits[i].start,
+        // Source media seek time (where to extract from in the source file)
         startTime: vfxClipData.inPoint + splits[i].start,
         endTime: vfxClipData.inPoint + splits[i].end,
         duration: splits[i].duration,

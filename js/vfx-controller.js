@@ -126,7 +126,8 @@ var VFXController = (function () {
       clipName: opts.clipName || 'Clip',
       chunkIndex: opts.chunkIndex || 0,
       totalChunks: opts.totalChunks || 1,
-      startTime: opts.startTime,
+      timelineStart: opts.timelineStart, // Where on the sequence timeline to place result
+      startTime: opts.startTime,         // Media seek time for ffmpeg extraction
       endTime: opts.endTime,
       duration: opts.duration,
       prompt: opts.prompt,
@@ -219,13 +220,13 @@ var VFXController = (function () {
             return KlingVideo.downloadVideo(pollResult.videoUrl, videoPath);
           })
           .then(function () {
-            // Step 5: Import into Premiere Pro
+            // Step 5: Import into Premiere Pro at the correct timeline position
             updateTask({ status: 'importing', progress: 95 });
-            console.log('[VFX] Importing video: ' + task.videoPath + ' at ' + task.startTime + 's');
+            var timelinePos = task.timelineStart || task.startTime;
+            console.log('[VFX] Importing video: ' + task.videoPath + ' at timeline position ' + timelinePos + 's');
 
             var escapedPath = task.videoPath.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-            var startSec = task.startTime;
-            return evalScript("importAndPlaceAbove('" + escapedPath + "', " + startSec + ")");
+            return evalScript("importAndPlaceAbove('" + escapedPath + "', " + timelinePos + ")");
           })
           .then(function (importResult) {
             console.log('[VFX] Import result:', JSON.stringify(importResult));
