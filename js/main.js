@@ -936,7 +936,7 @@
     }
 
     var statusIcons = { queued: '⚪', extracting: '🟡', submitting: '🟡', processing: '🟡', downloading: '🟡', importing: '🟡', done: '🟢', error: '🔴' };
-    var statusLabels = { queued: 'Queued', extracting: 'Extracting video...', submitting: 'Submitting to Kling...', processing: 'Generating video...', downloading: 'Downloading...', importing: 'Importing to timeline...', done: 'Complete', error: 'Error' };
+    var statusLabels = { queued: 'Queued', extracting: 'Extracting video...', submitting: 'Uploading to Kling...', processing: 'Generating video...', downloading: 'Downloading...', importing: 'Importing to timeline...', done: 'Complete', error: 'Error' };
 
     var html = '';
     var doneCount = 0;
@@ -947,7 +947,23 @@
       var label = statusLabels[t.status] || t.status;
       if (t.status === 'error' && t.error) label = t.error;
 
+      // Thumbnail from reference image
+      var thumbHtml = '';
+      if (t.thumbDataUri) {
+        thumbHtml = '<img class="queue-thumb" src="' + t.thumbDataUri + '" alt="ref">';
+      }
+
+      // Action buttons
+      var actionsHtml = '';
+      if (t.status === 'error') {
+        actionsHtml += '<button class="queue-btn-retry" data-retry-id="' + t.id + '">Retry</button>';
+      }
+      if (t.status === 'done' || t.status === 'error') {
+        actionsHtml += '<button class="queue-btn-folder" data-folder-id="' + t.id + '" title="Show in Finder">📂</button>';
+      }
+
       html += '<div class="vfx-queue-item" data-task-id="' + t.id + '">' +
+        thumbHtml +
         '<span class="queue-status-icon">' + icon + '</span>' +
         '<div class="queue-info">' +
           '<div class="queue-name">' + escapeHtml(t.clipName) +
@@ -956,7 +972,7 @@
           (t.status !== 'done' && t.status !== 'error' && t.status !== 'queued' ?
             '<div class="queue-progress"><div class="queue-progress-bar" style="width:' + t.progress + '%"></div></div>' : '') +
         '</div>' +
-        (t.status === 'error' ? '<button class="queue-btn-retry" data-retry-id="' + t.id + '">Retry</button>' : '') +
+        '<div class="queue-actions">' + actionsHtml + '</div>' +
       '</div>';
     }
 
@@ -970,6 +986,14 @@
         VFXController.retryTask(taskId);
         renderVFXQueue();
         VFXController.processQueue(function () { renderVFXQueue(); }, evalScript);
+      });
+    });
+
+    // Bind show-in-folder buttons
+    els.vfxQueueList.querySelectorAll('.queue-btn-folder').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var taskId = this.getAttribute('data-folder-id');
+        VFXController.showInFolder(taskId);
       });
     });
   }

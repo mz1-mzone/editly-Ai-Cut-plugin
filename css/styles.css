@@ -476,6 +476,17 @@ body {
   cursor: pointer; transition: all var(--transition-fast);
 }
 .queue-btn-retry:hover { border-color: var(--accent); color: var(--accent); }
+.queue-thumb {
+  width: 36px; height: 36px; border-radius: 4px; object-fit: cover; flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.queue-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.queue-btn-folder {
+  padding: 4px 6px; border-radius: var(--radius-sm); font-size: 13px;
+  border: 1px solid var(--border); background: none; cursor: pointer;
+  transition: all var(--transition-fast); line-height: 1;
+}
+.queue-btn-folder:hover { border-color: var(--accent); background: rgba(157,92,255,0.08); }
 
 /* Clip info with duration badge */
 .vfx-clip-info {
