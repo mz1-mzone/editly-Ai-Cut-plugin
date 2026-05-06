@@ -150,12 +150,12 @@ var SeedanceVideo = (function () {
     var onProgress = opts.onProgress || function () {};
 
     // Step 1: Upload files to get public URLs
-    // NOTE: We skip the AI-generated preview image for Seedance because
-    // its safety filter rejects images containing real human faces.
-    // The video reference provides enough visual context.
+    // NOTE: We do NOT send the AI-generated preview as reference_image
+    // because Seedance blocks images containing real people.
+    // The AI preview is only for user approval in the UI.
     var uploadPromises = [];
 
-    // Upload extra user-provided reference images only
+    // Upload extra user-provided reference images (if any)
     if (opts.extraImagePaths && opts.extraImagePaths.length > 0) {
       onProgress({ detail: 'Uploading reference images...' });
       for (var i = 0; i < opts.extraImagePaths.length; i++) {
