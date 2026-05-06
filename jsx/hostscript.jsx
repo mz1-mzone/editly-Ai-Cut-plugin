@@ -822,13 +822,34 @@ function importAndPlaceAbove(videoPath, startSeconds) {
       }
     }
 
-    // 6. Verify: check if a clip now exists on the target track near our time
+    // 6. Verify and mute audio on placed clip (original audio plays from V1/A1)
     var verified = false;
     for (var c = 0; c < targetTrack.clips.numItems; c++) {
       var placedStart = targetTrack.clips[c].start.seconds;
       if (Math.abs(placedStart - startSeconds) < 1.0) {
         verified = true;
         debugInfo.push('Verified: clip found at ' + placedStart.toFixed(2) + 's');
+
+        // Mute audio on the VFX clip so original audio plays through
+        try {
+          var placedClip = targetTrack.clips[c];
+          // Check linked audio tracks and mute them
+          var audioTracks = seq.audioTracks;
+          for (var at = 1; at < audioTracks.numTracks; at++) {
+            var aTrack = audioTracks[at];
+            for (var ac = 0; ac < aTrack.clips.numItems; ac++) {
+              var aClipStart = aTrack.clips[ac].start.seconds;
+              if (Math.abs(aClipStart - startSeconds) < 0.5) {
+                // This audio clip was likely placed with our VFX video — mute it
+                aTrack.clips[ac].disabled = true;
+                debugInfo.push('Muted audio on A' + (at + 1) + ' at ' + aClipStart.toFixed(2) + 's');
+              }
+            }
+          }
+        } catch (muteErr) {
+          debugInfo.push('Audio mute skipped: ' + muteErr.message);
+        }
+
         break;
       }
     }

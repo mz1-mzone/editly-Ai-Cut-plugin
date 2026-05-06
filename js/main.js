@@ -1056,7 +1056,7 @@
       var t = queue[i];
       if (t.status === 'done') doneCount++;
       var icon = statusIcons[t.status] || '⚪';
-      var modelName = t.model === 'seedance-2' ? 'Seedance' : 'Kling';
+      var modelName = t.model === 'beeble' ? 'Beeble' : (t.model === 'seedance-2' ? 'Seedance' : 'Kling');
       var statusLabels = { queued: 'Queued', extracting: 'Extracting video...', submitting: 'Uploading to ' + modelName + '...', processing: 'Generating (' + modelName + ')...', downloading: 'Downloading...', importing: 'Importing to timeline...', done: 'Complete', error: 'Error' };
       var label = statusLabels[t.status] || t.status;
       if (t.status === 'error' && t.error) label = t.error;
