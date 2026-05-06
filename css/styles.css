@@ -425,8 +425,13 @@ body {
 .vfx-action-row .vfx-generate { flex: 1; margin-top: 0; }
 .vfx-action-row .vfx-upload-ref { flex-shrink: 0; padding: 0 14px; font-size: 12px; }
 .vfx-generate { margin-top: 8px; }
-.vfx-direct-gen { margin-top: 6px; width: 100%; text-align: center; background: linear-gradient(135deg, #9d5cff 0%, #ff6b9d 100%); color: #fff; border: none; font-weight: 600; }
-.vfx-direct-gen:hover { opacity: 0.9; }
+.vfx-direct-gen {
+  margin-top: 6px; width: 100%; text-align: center; padding: 10px 16px;
+  background: linear-gradient(135deg, #9d5cff 0%, #ff6b9d 100%);
+  color: #fff; border: none; font-weight: 600; font-size: 13px;
+  border-radius: 6px; cursor: pointer; transition: opacity 0.2s;
+}
+.vfx-direct-gen:hover { opacity: 0.85; }
 .vfx-queue-btn { margin-top: 6px; width: 100%; text-align: center; }
 
 /* Model Selector */
