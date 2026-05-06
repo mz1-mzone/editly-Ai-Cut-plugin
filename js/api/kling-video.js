@@ -3,26 +3,22 @@
  * Async task-based API with JWT authentication (Access Key + Secret Key).
  * Docs: https://kling.ai/document-api/apiReference/model/motionControl
  * Base URL: https://api.klingai.com
+ *
+ * Kling requires publicly accessible URLs for image_url and video_url.
+ * We use tmpfiles.org (free, no-auth, 60min expiry) to host files temporarily.
  */
 
 var KlingVideo = (function () {
   'use strict';
 
   var API_BASE = 'https://api.klingai.com/v1';
-  var POLL_INTERVALS = [10000, 15000, 20000, 30000, 30000]; // escalating poll times
+  var UPLOAD_URL = 'https://tmpfiles.org/api/v1/upload';
+  var POLL_INTERVALS = [10000, 15000, 20000, 30000, 30000];
   var MIN_DURATION = 3;
   var MAX_DURATION = 30;
 
   // ==================== JWT TOKEN GENERATION ====================
 
-  /**
-   * Generate a JWT token for Kling API auth using HS256.
-   * RFC 7519 compliant. Header: {alg: HS256, typ: JWT}
-   * Payload: {iss: accessKey, exp: now+1800, nbf: now-5}
-   * @param {string} accessKey - Kling Access Key (AK)
-   * @param {string} secretKey - Kling Secret Key (SK)
-   * @returns {string} JWT token
-   */
   function generateJWT(accessKey, secretKey) {
     var crypto = require('crypto');
     var now = Math.floor(Date.now() / 1000);
@@ -30,8 +26,8 @@ var KlingVideo = (function () {
     var header = { alg: 'HS256', typ: 'JWT' };
     var payload = {
       iss: accessKey,
-      exp: now + 1800,  // 30 min expiry
-      nbf: now - 5      // valid from 5s ago
+      exp: now + 1800,
+      nbf: now - 5
     };
 
     function base64url(obj) {
@@ -58,124 +54,212 @@ var KlingVideo = (function () {
     return signingInput + '.' + signature;
   }
 
+  // ==================== FILE UPLOAD (tmpfiles.org) ====================
+
+  /**
+   * Upload a local file to tmpfiles.org and get a direct download URL.
+   * tmpfiles.org response: { status: "success", data: { url: "https://tmpfiles.org/XXXXX/file.ext" } }
+   * Direct download URL: replace tmpfiles.org/ with tmpfiles.org/dl/
+   *
+   * @param {string} filePath - Local file path
+   * @returns {Promise<string>} - Public download URL
+   */
+  function uploadFile(filePath) {
+    return new Promise(function (resolve, reject) {
+      var fs = require('fs');
+      var path = require('path');
+      var https = require('https');
+      var url = require('url');
+
+      var fileName = path.basename(filePath);
+      var fileData = fs.readFileSync(filePath);
+      var boundary = '----EditlyBoundary' + Date.now();
+
+      // Build multipart form data
+      var bodyParts = [];
+      bodyParts.push(Buffer.from(
+        '--' + boundary + '\r\n' +
+        'Content-Disposition: form-data; name="file"; filename="' + fileName + '"\r\n' +
+        'Content-Type: application/octet-stream\r\n\r\n'
+      ));
+      bodyParts.push(fileData);
+      bodyParts.push(Buffer.from('\r\n--' + boundary + '--\r\n'));
+
+      var body = Buffer.concat(bodyParts);
+
+      var parsed = url.parse(UPLOAD_URL);
+      var options = {
+        hostname: parsed.hostname,
+        port: 443,
+        path: parsed.path,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'multipart/form-data; boundary=' + boundary,
+          'Content-Length': body.length
+        }
+      };
+
+      console.log('[Kling] Uploading ' + fileName + ' (' + (fileData.length / 1024 / 1024).toFixed(1) + ' MB) to tmpfiles.org...');
+
+      var req = https.request(options, function (res) {
+        var chunks = [];
+        res.on('data', function (chunk) { chunks.push(chunk); });
+        res.on('end', function () {
+          try {
+            var responseText = Buffer.concat(chunks).toString();
+            var resp = JSON.parse(responseText);
+
+            if (resp.status === 'success' && resp.data && resp.data.url) {
+              // Convert page URL to direct download URL
+              // tmpfiles.org/12345/file.mp4 → tmpfiles.org/dl/12345/file.mp4
+              var directUrl = resp.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+              console.log('[Kling] Uploaded: ' + directUrl);
+              resolve(directUrl);
+            } else {
+              reject(new Error('Upload failed: ' + responseText.substring(0, 200)));
+            }
+          } catch (e) {
+            reject(new Error('Upload response parse error: ' + e.message));
+          }
+        });
+      });
+
+      req.on('error', function (err) {
+        reject(new Error('Upload network error: ' + err.message));
+      });
+
+      req.write(body);
+      req.end();
+    });
+  }
+
+  /**
+   * Save base64 image data to a temporary file.
+   * @param {string} base64Data - Raw base64 image data
+   * @param {string} ext - File extension (e.g. 'png', 'jpg')
+   * @returns {string} - Path to temp file
+   */
+  function saveBase64ToTempFile(base64Data, ext) {
+    var fs = require('fs');
+    var os = require('os');
+    var tempDir = os.tmpdir() + '/editly_vfx';
+    try { fs.mkdirSync(tempDir, { recursive: true }); } catch (e) {}
+    var filePath = tempDir + '/upload_' + Date.now() + '.' + (ext || 'png');
+    fs.writeFileSync(filePath, Buffer.from(base64Data, 'base64'));
+    return filePath;
+  }
+
   // ==================== API CALLS ====================
 
   /**
    * Submit a Motion Control video generation task.
    * POST /v1/videos/motion-control
    *
-   * Required fields per Kling docs:
-   *   - image_url: string (URL or raw base64 without data URI prefix)
-   *   - video_url: string (URL or raw base64 without data URI prefix)
-   *   - character_orientation: "video" | "image"
-   *
-   * Optional fields:
-   *   - model_name: "kling-v2-6" (default) or "kling-v3"
-   *   - prompt: string (max 2500 chars)
-   *   - keep_original_sound: "yes" | "no" (default "yes")
-   *   - callback_url: string (not used, we poll instead)
-   *   - external_task_id: string
+   * Steps:
+   * 1. Upload reference image to tmpfiles.org → get image_url
+   * 2. Upload video chunk to tmpfiles.org → get video_url
+   * 3. Submit to Kling with both URLs
    *
    * @param {object} opts
-   * @param {string} opts.accessKey - Kling Access Key
-   * @param {string} opts.secretKey - Kling Secret Key
-   * @param {string} opts.referenceImageBase64 - AI-generated image (raw base64, no prefix)
-   * @param {string} opts.videoFilePath - Local path to the source video chunk
-   * @param {string} opts.prompt - Effect description
+   * @param {string} opts.accessKey
+   * @param {string} opts.secretKey
+   * @param {string} opts.referenceImageBase64 - AI image (raw base64)
+   * @param {string} opts.videoFilePath - Local path to video chunk
+   * @param {string} opts.prompt
    * @param {number} opts.duration - Duration in seconds (3-30)
+   * @param {function} opts.onProgress - Progress callback
    * @returns {Promise<{success: boolean, taskId?: string, error?: string}>}
    */
   function submitTask(opts) {
-    var url = API_BASE + '/videos/motion-control';
-    var token = generateJWT(opts.accessKey, opts.secretKey);
+    var onProgress = opts.onProgress || function () {};
 
-    // Read video file as raw base64 (no data URI prefix, per Kling docs)
-    var fs = require('fs');
-    var videoBuffer = fs.readFileSync(opts.videoFilePath);
-    var videoBase64 = videoBuffer.toString('base64');
+    // Step 1: Save image base64 to temp file
+    onProgress({ detail: 'Preparing image...' });
+    var imageTempPath = saveBase64ToTempFile(opts.referenceImageBase64, 'png');
 
-    // Clamp duration to valid range
-    var duration = Math.max(MIN_DURATION, Math.min(opts.duration || 5, MAX_DURATION));
+    // Step 2: Upload both files to get URLs
+    onProgress({ detail: 'Uploading image...' });
 
-    // Build request body per Kling Motion Control spec
-    var body = {
-      model_name: 'kling-v2-6',
-      image_url: opts.referenceImageBase64,         // Raw base64, no data: prefix
-      video_url: videoBase64,                        // Raw base64, no data: prefix
-      character_orientation: 'video',                // Match motion from video (supports up to 30s)
-      prompt: opts.prompt || '',
-      keep_original_sound: 'yes'                     // String, not boolean
-    };
+    return uploadFile(imageTempPath)
+      .then(function (imageUrl) {
+        onProgress({ detail: 'Uploading video...' });
+        return uploadFile(opts.videoFilePath).then(function (videoUrl) {
+          return { imageUrl: imageUrl, videoUrl: videoUrl };
+        });
+      })
+      .then(function (urls) {
+        onProgress({ detail: 'Submitting to Kling AI...' });
 
-    console.log('[Kling] Submitting motion-control task');
-    console.log('[Kling] Duration: ' + duration + 's, model: ' + body.model_name);
-    console.log('[Kling] Image base64 length: ' + (opts.referenceImageBase64 || '').length);
-    console.log('[Kling] Video base64 length: ' + videoBase64.length);
+        var token = generateJWT(opts.accessKey, opts.secretKey);
+        var duration = Math.max(MIN_DURATION, Math.min(opts.duration || 5, MAX_DURATION));
 
-    return new Promise(function (resolve, reject) {
-      var xhr = new XMLHttpRequest();
-      xhr.open('POST', url, true);
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-      xhr.timeout = 180000; // 3 min for large base64 uploads
+        var body = {
+          model_name: 'kling-v2-6',
+          image_url: urls.imageUrl,
+          video_url: urls.videoUrl,
+          character_orientation: 'video',
+          prompt: opts.prompt || '',
+          keep_original_sound: 'yes'
+        };
 
-      xhr.onload = function () {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            var resp = JSON.parse(xhr.responseText);
-            console.log('[Kling] Submit response:', JSON.stringify(resp).substring(0, 300));
+        console.log('[Kling] Submitting motion-control task');
+        console.log('[Kling] image_url: ' + urls.imageUrl);
+        console.log('[Kling] video_url: ' + urls.videoUrl);
 
-            // Kling response: { code: 0, message: "...", data: { task_id: "..." } }
-            var taskId = null;
-            if (resp.data && resp.data.task_id) taskId = resp.data.task_id;
-            else if (resp.task_id) taskId = resp.task_id;
+        return new Promise(function (resolve, reject) {
+          var xhr = new XMLHttpRequest();
+          xhr.open('POST', API_BASE + '/videos/motion-control', true);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+          xhr.timeout = 60000;
 
-            if (taskId) {
-              console.log('[Kling] Task submitted: ' + taskId);
-              resolve({ success: true, taskId: taskId });
-            } else if (resp.code && resp.code !== 0) {
-              resolve({ success: false, error: 'Kling error ' + resp.code + ': ' + (resp.message || 'Unknown') });
+          xhr.onload = function () {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                var resp = JSON.parse(xhr.responseText);
+                console.log('[Kling] Submit response:', JSON.stringify(resp).substring(0, 300));
+
+                var taskId = null;
+                if (resp.data && resp.data.task_id) taskId = resp.data.task_id;
+                else if (resp.task_id) taskId = resp.task_id;
+
+                if (taskId) {
+                  resolve({ success: true, taskId: taskId });
+                } else if (resp.code && resp.code !== 0) {
+                  resolve({ success: false, error: 'Kling error ' + resp.code + ': ' + (resp.message || 'Unknown') });
+                } else {
+                  resolve({ success: false, error: 'No task_id: ' + JSON.stringify(resp).substring(0, 200) });
+                }
+              } catch (e) {
+                reject(new Error('Parse error: ' + e.message));
+              }
             } else {
-              resolve({ success: false, error: 'No task_id in response: ' + JSON.stringify(resp).substring(0, 200) });
+              var errMsg = 'Kling API error ' + xhr.status;
+              try {
+                var errBody = JSON.parse(xhr.responseText);
+                if (errBody.message) errMsg += ': ' + errBody.message;
+              } catch (e) {
+                errMsg += ': ' + xhr.responseText.substring(0, 200);
+              }
+              reject(new Error(errMsg));
             }
-          } catch (e) {
-            reject(new Error('Parse error: ' + e.message));
-          }
-        } else {
-          var errMsg = 'Kling API error ' + xhr.status;
-          try {
-            var errBody = JSON.parse(xhr.responseText);
-            if (errBody.message) errMsg += ': ' + errBody.message;
-            else if (errBody.error) errMsg += ': ' + (errBody.error.message || errBody.error);
-          } catch (e) {
-            errMsg += ': ' + xhr.responseText.substring(0, 200);
-          }
-          reject(new Error(errMsg));
-        }
-      };
+          };
 
-      xhr.onerror = function () { reject(new Error('Network error calling Kling API')); };
-      xhr.ontimeout = function () { reject(new Error('Kling API submit timed out (3 min)')); };
-      xhr.send(JSON.stringify(body));
-    });
+          xhr.onerror = function () { reject(new Error('Network error calling Kling API')); };
+          xhr.ontimeout = function () { reject(new Error('Kling API timed out')); };
+          xhr.send(JSON.stringify(body));
+        });
+      });
   }
 
   /**
    * Poll a task until completion or failure.
    * GET /v1/videos/motion-control/{task_id}
-   *
-   * Response shape: { code: 0, data: { task_id, task_status, task_status_msg, task_result: { videos: [{url, duration}] } } }
-   *
-   * @param {string} accessKey
-   * @param {string} secretKey
-   * @param {string} taskId
-   * @param {function} onProgress - Called with status updates
-   * @returns {Promise<{success: boolean, videoUrl?: string, error?: string}>}
    */
   function pollTask(accessKey, secretKey, taskId, onProgress) {
     var url = API_BASE + '/videos/motion-control/' + taskId;
     var pollCount = 0;
-    var maxPolls = 120; // ~30 min max
+    var maxPolls = 120;
 
     return new Promise(function (resolve, reject) {
       function poll() {
@@ -184,7 +268,6 @@ var KlingVideo = (function () {
           return;
         }
 
-        // Generate fresh JWT for each poll (tokens expire in 30 min)
         var token = generateJWT(accessKey, secretKey);
 
         var xhr = new XMLHttpRequest();
@@ -207,7 +290,6 @@ var KlingVideo = (function () {
               }
 
               if (status === 'completed' || status === 'succeed') {
-                // Extract video URL: data.task_result.videos[0].url
                 var videoUrl = null;
                 if (taskData.task_result && taskData.task_result.videos) {
                   var videos = taskData.task_result.videos;
@@ -215,26 +297,20 @@ var KlingVideo = (function () {
                     videoUrl = videos[0].url;
                   }
                 }
-                if (!videoUrl) {
-                  console.log('[Kling] Full response for debug: ' + JSON.stringify(resp).substring(0, 500));
-                }
                 resolve({ success: true, videoUrl: videoUrl });
               } else if (status === 'failed' || status === 'error') {
                 var errMsg = taskData.task_status_msg || taskData.error || 'Task failed';
                 resolve({ success: false, error: errMsg });
               } else {
-                // Still processing (status: submitted, processing, etc.)
                 pollCount++;
                 var interval = POLL_INTERVALS[Math.min(pollCount, POLL_INTERVALS.length - 1)];
                 setTimeout(poll, interval);
               }
             } catch (e) {
-              console.warn('[Kling] Poll parse error, retrying...');
               pollCount++;
               setTimeout(poll, 15000);
             }
           } else {
-            console.warn('[Kling] Poll HTTP ' + xhr.status + ', retrying...');
             pollCount++;
             setTimeout(poll, 15000);
           }
@@ -251,10 +327,6 @@ var KlingVideo = (function () {
 
   /**
    * Download a video from URL to a local file.
-   * Note: Kling video URLs are temporary (24h), download immediately.
-   * @param {string} videoUrl - Remote URL
-   * @param {string} outputPath - Local file path
-   * @returns {Promise<boolean>}
    */
   function downloadVideo(videoUrl, outputPath) {
     return new Promise(function (resolve, reject) {
@@ -265,7 +337,6 @@ var KlingVideo = (function () {
 
       var file = fs.createWriteStream(outputPath);
       client.get(videoUrl, function (response) {
-        // Follow redirects
         if (response.statusCode === 301 || response.statusCode === 302) {
           downloadVideo(response.headers.location, outputPath).then(resolve).catch(reject);
           return;
@@ -285,9 +356,6 @@ var KlingVideo = (function () {
 
   /**
    * Calculate split points for a clip (min 3s, max 30s per chunk).
-   * @param {number} duration - Total clip duration in seconds
-   * @param {number} maxChunk - Max seconds per chunk (default 30)
-   * @returns {Array<{start: number, end: number, index: number, duration: number}>}
    */
   function calculateSplits(duration, maxChunk) {
     maxChunk = maxChunk || MAX_DURATION;
@@ -297,7 +365,6 @@ var KlingVideo = (function () {
     while (start < duration) {
       var end = Math.min(start + maxChunk, duration);
       var chunkDur = end - start;
-      // Kling min is 3s. If last chunk < 3s, merge with previous
       if (chunkDur < MIN_DURATION && chunks.length > 0) {
         chunks[chunks.length - 1].end = end;
         chunks[chunks.length - 1].duration = chunks[chunks.length - 1].end - chunks[chunks.length - 1].start;
@@ -312,6 +379,7 @@ var KlingVideo = (function () {
 
   return {
     generateJWT: generateJWT,
+    uploadFile: uploadFile,
     submitTask: submitTask,
     pollTask: pollTask,
     downloadVideo: downloadVideo,

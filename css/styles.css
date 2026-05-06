@@ -421,6 +421,7 @@ body {
 
 /* VFX Generate Button */
 .vfx-generate { margin-top: 8px; }
+.vfx-queue-btn { margin-top: 6px; width: 100%; text-align: center; }
 
 /* VFX Preview */
 .vfx-progress {

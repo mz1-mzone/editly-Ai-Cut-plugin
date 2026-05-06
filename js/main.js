@@ -76,6 +76,7 @@
     vfxPromptInput: document.getElementById('vfxPromptInput'),
     templateGrid: document.getElementById('templateGrid'),
     vfxBtnGenerate: document.getElementById('vfxBtnGenerate'),
+    vfxBtnViewQueue: document.getElementById('vfxBtnViewQueue'),
     // VFX Preview
     vfxPageSetup: document.getElementById('vfxPageSetup'),
     vfxPagePreview: document.getElementById('vfxPagePreview'),
@@ -911,6 +912,8 @@
     // Switch to queue page and start processing
     showVFXPage('queue');
     renderVFXQueue();
+    // Show the "View Queue" button on setup page for navigation back
+    els.vfxBtnViewQueue.style.display = 'block';
     showToast(splits.length + ' task(s) queued for video generation', 'success');
 
     VFXController.processQueue(function (task) {
@@ -1001,6 +1004,10 @@
   });
   els.vfxBtnBackFromQueue.addEventListener('click', function () {
     showVFXPage('setup');
+  });
+  els.vfxBtnViewQueue.addEventListener('click', function () {
+    renderVFXQueue();
+    showVFXPage('queue');
   });
 
   // Template buttons
