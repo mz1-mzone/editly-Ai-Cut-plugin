@@ -81,6 +81,7 @@
     vfxBtnGenerate: document.getElementById('vfxBtnGenerate'),
     vfxBtnUploadRef: document.getElementById('vfxBtnUploadRef'),
     vfxRefImageInput: document.getElementById('vfxRefImageInput'),
+    vfxBtnDirectGen: document.getElementById('vfxBtnDirectGen'),
     vfxBtnViewQueue: document.getElementById('vfxBtnViewQueue'),
     vfxModelSelect: document.getElementById('vfxModelSelect'),
     vfxImageUpload: document.getElementById('vfxImageUpload'),
@@ -1039,6 +1040,65 @@
     }, evalScript);
   }
 
+  // ==================== SEEDANCE DIRECT VIDEO GENERATION ====================
+  function vfxDirectGenerate() {
+    if (!vfxClipData) { showToast('Select a clip first', 'error'); return; }
+
+    var prompt = els.vfxPromptInput.value.trim();
+    if (!prompt) { showToast('Enter a prompt', 'error'); return; }
+    if (!settings.seedance_api_key) { showToast('Configure Seedance API Key in Settings', 'error'); return; }
+
+    var dur = vfxClipData.duration || 0;
+    var splits = SeedanceVideo.calculateSplits(dur, 15);
+
+    var fw = vfxClipData.frameWidth || 1920;
+    var fh = vfxClipData.frameHeight || 1080;
+    var ratio = SeedanceVideo.mapRatio(fw, fh);
+
+    // Collect reference image paths
+    var extraImagePaths = [];
+    for (var j = 0; j < vfxUploadedImages.length; j++) {
+      if (vfxUploadedImages[j].path) extraImagePaths.push(vfxUploadedImages[j].path);
+    }
+
+    // Create tasks — no imageBase64 (no preview generated)
+    for (var i = 0; i < splits.length; i++) {
+      VFXController.createTask({
+        clipName: vfxClipData.clipName,
+        chunkIndex: i,
+        totalChunks: splits.length,
+        timelineStart: vfxClipData.startTime + splits[i].start,
+        startTime: vfxClipData.inPoint + splits[i].start,
+        endTime: vfxClipData.inPoint + splits[i].end,
+        duration: splits[i].duration,
+        prompt: prompt,
+        imageBase64: null, // No preview — direct generation
+        mediaPath: vfxClipData.mediaPath,
+        model: 'seedance-2',
+        ratio: ratio,
+        extraImagePaths: extraImagePaths,
+        klingAccessKey: settings.kling_access_key,
+        klingSecretKey: settings.kling_secret_key,
+        seedanceApiKey: settings.seedance_api_key,
+        beebleApiKey: settings.beeble_api_key
+      });
+    }
+
+    showVFXPage('queue');
+    renderVFXQueue();
+    els.vfxBtnViewQueue.style.display = 'block';
+    showToast(splits.length + ' Seedance task(s) queued — generating directly', 'success');
+
+    VFXController.processQueue(function (task) {
+      renderVFXQueue();
+      if (task.status === 'done') {
+        showToast(task.clipName + ' chunk ' + (task.chunkIndex + 1) + ' complete!', 'success');
+      } else if (task.status === 'error') {
+        showToast('Task error: ' + task.error, 'error');
+      }
+    }, evalScript);
+  }
+
   function renderVFXQueue() {
     var queue = VFXController.getQueue();
     if (queue.length === 0) {
@@ -1150,6 +1210,9 @@
   els.vfxBtnRegenerate.addEventListener('click', function () {
     showVFXPage('setup');
   });
+  if (els.vfxBtnDirectGen) {
+    els.vfxBtnDirectGen.addEventListener('click', vfxDirectGenerate);
+  }
   els.vfxBtnBackToSetup.addEventListener('click', function () {
     if (!vfxIsProcessing) showVFXPage('setup');
   });
@@ -1199,6 +1262,10 @@
     els.vfxModelSelect.addEventListener('change', function () {
       var isSeedance = this.value === 'seedance-2';
       els.vfxImageUpload.style.display = isSeedance ? 'block' : 'none';
+      // Show direct generate button only for Seedance
+      if (els.vfxBtnDirectGen) {
+        els.vfxBtnDirectGen.style.display = isSeedance ? 'block' : 'none';
+      }
     });
   }
 

@@ -152,13 +152,15 @@ var SeedanceVideo = (function () {
     // Step 1: Upload all files to get public URLs
     var uploadPromises = [];
 
-    // Upload AI-generated reference image
-    onProgress({ detail: 'Uploading reference image...' });
-    uploadPromises.push(
-      uploadBase64(opts.referenceImageBase64, 'png').then(function (url) {
-        return { type: 'image', url: url, role: 'reference_image' };
-      })
-    );
+    // Upload AI-generated reference image (if available — skipped for direct generation)
+    if (opts.referenceImageBase64) {
+      onProgress({ detail: 'Uploading reference image...' });
+      uploadPromises.push(
+        uploadBase64(opts.referenceImageBase64, 'png').then(function (url) {
+          return { type: 'image', url: url, role: 'reference_image' };
+        })
+      );
+    }
 
     // Upload extra user images
     if (opts.extraImagePaths && opts.extraImagePaths.length > 0) {
