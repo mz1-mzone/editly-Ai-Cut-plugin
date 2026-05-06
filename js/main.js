@@ -25,7 +25,8 @@
     anthropic_api_key: '',
     ai_model: 'claude-opus-4-7',
     gemini_api_key: '',
-    kling_api_key: ''
+    kling_access_key: '',
+    kling_secret_key: ''
   };
 
   // VFX state
@@ -93,6 +94,8 @@
     vfxQueueList: document.getElementById('vfxQueueList'),
     vfxQueueBadge: document.getElementById('vfxQueueBadge'),
     // Settings
+    settingsKlingAK: document.getElementById('settingsKlingAK'),
+    settingsKlingSK: document.getElementById('settingsKlingSK'),
     btnSettings: document.getElementById('btnSettings'),
     settingsOverlay: document.getElementById('settingsOverlay'),
     btnSettingsClose: document.getElementById('btnSettingsClose'),
@@ -100,7 +103,6 @@
     settingsSttModel: document.getElementById('settingsSttModel'),
     settingsAiModel: document.getElementById('settingsAiModel'),
     settingsGeminiKey: document.getElementById('settingsGeminiKey'),
-    settingsKlingKey: document.getElementById('settingsKlingKey'),
     btnSaveSettings: document.getElementById('btnSaveSettings'),
     statusDot: document.getElementById('statusDot'),
     statusText: document.getElementById('statusText'),
@@ -151,7 +153,8 @@
         settings.anthropic_api_key = loaded.anthropic_api_key || '';
         settings.ai_model = loaded.ai_model || 'claude-opus-4-7';
         settings.gemini_api_key = loaded.gemini_api_key || '';
-        settings.kling_api_key = loaded.kling_api_key || '';
+        settings.kling_access_key = loaded.kling_access_key || '';
+        settings.kling_secret_key = loaded.kling_secret_key || '';
       }
     } catch (e) {
       console.warn('Could not load settings:', e.message);
@@ -162,7 +165,8 @@
     if (els.settingsSttModel) els.settingsSttModel.value = settings.anthropic_api_key;
     if (els.settingsAiModel) els.settingsAiModel.value = settings.ai_model;
     if (els.settingsGeminiKey) els.settingsGeminiKey.value = settings.gemini_api_key;
-    if (els.settingsKlingKey) els.settingsKlingKey.value = settings.kling_api_key;
+    if (els.settingsKlingAK) els.settingsKlingAK.value = settings.kling_access_key;
+    if (els.settingsKlingSK) els.settingsKlingSK.value = settings.kling_secret_key;
 
     updateConnectionStatus();
     initApiClients();
@@ -173,7 +177,8 @@
     if (els.settingsSttModel) settings.anthropic_api_key = els.settingsSttModel.value.trim();
     if (els.settingsAiModel) settings.ai_model = els.settingsAiModel.value;
     if (els.settingsGeminiKey) settings.gemini_api_key = els.settingsGeminiKey.value.trim();
-    if (els.settingsKlingKey) settings.kling_api_key = els.settingsKlingKey.value.trim();
+    if (els.settingsKlingAK) settings.kling_access_key = els.settingsKlingAK.value.trim();
+    if (els.settingsKlingSK) settings.kling_secret_key = els.settingsKlingSK.value.trim();
 
     try {
       var extPath = csInterface.getSystemPath(SystemPath.EXTENSION);
@@ -836,10 +841,15 @@
     els.vfxPreviewStatus.textContent = 'Generating...';
     els.vfxPreviewStatus.className = 'card-badge';
 
+    // Prepend aspect ratio instruction to prompt
+    var fw = vfxClipData.frameWidth || 1920;
+    var fh = vfxClipData.frameHeight || 1080;
+    var aspectPrompt = 'IMPORTANT: The output image MUST be exactly ' + fw + 'x' + fh + ' pixels (' + fw + ':' + fh + ' aspect ratio). ' + prompt;
+
     VFXController.generatePreview({
       clip: vfxClipData,
       mediaPath: vfxClipData.mediaPath,
-      prompt: prompt,
+      prompt: aspectPrompt,
       geminiApiKey: settings.gemini_api_key,
       imageModel: 'gemini-3-pro-image-preview',
       onProgress: function (p) {
@@ -872,8 +882,8 @@
 
   function vfxApproveAndGenerate() {
     if (!vfxPreviewData || !vfxClipData) return;
-    if (!settings.kling_api_key) {
-      showToast('Configure Kling API key in Settings', 'error');
+    if (!settings.kling_access_key || !settings.kling_secret_key) {
+      showToast('Configure Kling Access Key and Secret Key in Settings', 'error');
       return;
     }
 
@@ -893,7 +903,8 @@
         prompt: prompt,
         imageBase64: vfxPreviewData.imageBase64,
         mediaPath: vfxClipData.mediaPath,
-        klingApiKey: settings.kling_api_key
+        klingAccessKey: settings.kling_access_key,
+        klingSecretKey: settings.kling_secret_key
       });
     }
 

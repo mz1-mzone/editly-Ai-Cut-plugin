@@ -168,7 +168,8 @@ var VFXController = (function () {
       prompt: opts.prompt,
       imageBase64: opts.imageBase64,
       mediaPath: opts.mediaPath,
-      klingApiKey: opts.klingApiKey,
+      klingAccessKey: opts.klingAccessKey,
+      klingSecretKey: opts.klingSecretKey,
       status: 'queued', // queued, extracting, submitting, processing, downloading, importing, done, error
       progress: 0,
       klingTaskId: null,
@@ -204,11 +205,12 @@ var VFXController = (function () {
         // Step 2: Submit to Kling
         updateTask({ status: 'submitting', progress: 20 });
         return KlingVideo.submitTask({
-          apiKey: task.klingApiKey,
+          accessKey: task.klingAccessKey,
+          secretKey: task.klingSecretKey,
           referenceImageBase64: task.imageBase64,
           videoFilePath: chunkPath,
           prompt: task.prompt,
-          duration: Math.min(task.duration, 30)
+          duration: Math.max(3, Math.min(task.duration, 30))
         });
       })
       .then(function (submitResult) {
@@ -217,7 +219,7 @@ var VFXController = (function () {
 
         // Step 3: Poll until done
         updateTask({ status: 'processing', progress: 30 });
-        return KlingVideo.pollTask(task.klingApiKey, submitResult.taskId, function (pollData) {
+        return KlingVideo.pollTask(task.klingAccessKey, task.klingSecretKey, submitResult.taskId, function (pollData) {
           var pct = 30 + Math.round((pollData.progress || 0) * 0.5);
           updateTask({ progress: Math.min(pct, 80) });
         });

@@ -148,31 +148,31 @@
         <div class="card">
           <div class="card-header"><span class="card-title">Quick Templates</span></div>
           <div class="template-grid" id="templateGrid">
-            <button class="template-btn" data-prompt="Change the background to a futuristic cyberpunk cityscape with neon lights and rain reflections">
+            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to a futuristic cyberpunk cityscape with neon lights, rain reflections, and holographic signs. The subject must remain pixel-perfect unchanged.">
               <span class="template-icon">🏙</span><span class="template-label">Cyberpunk BG</span>
             </button>
-            <button class="template-btn" data-prompt="Add realistic fire and flame effects around the subject with glowing embers">
+            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT move, resize, or alter the subject in any way. Add realistic fire and flame effects AROUND the subject with glowing embers and smoke. The subject must remain pixel-perfect unchanged.">
               <span class="template-icon">🔥</span><span class="template-label">Add Fire</span>
             </button>
-            <button class="template-btn" data-prompt="Make this look like a cinematic Hollywood film with dramatic lighting, shallow depth of field, and rich color grading">
+            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Apply cinematic Hollywood film grading with dramatic lighting, shallow depth of field, rich color grading, and film grain. The subject must remain pixel-perfect unchanged.">
               <span class="template-icon">🎬</span><span class="template-label">Cinematic</span>
             </button>
-            <button class="template-btn" data-prompt="Change the lighting to dramatic golden hour with warm tones, long shadows, and volumetric light rays">
+            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Change the lighting to dramatic golden hour with warm tones, long shadows, and volumetric light rays. The subject must remain pixel-perfect unchanged.">
               <span class="template-icon">💡</span><span class="template-label">Golden Hour</span>
             </button>
-            <button class="template-btn" data-prompt="Add heavy rain with wet reflections on the ground, water droplets, and moody atmosphere">
+            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Add heavy rain with wet reflections on the ground, water droplets on surfaces, and moody dark atmosphere. The subject must remain pixel-perfect unchanged.">
               <span class="template-icon">🌧</span><span class="template-label">Add Rain</span>
             </button>
-            <button class="template-btn" data-prompt="Add falling snow with a cold winter atmosphere, frost on surfaces, and foggy breath">
+            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Add falling snow with a cold winter atmosphere, frost on surfaces, foggy breath, and cold blue tones. The subject must remain pixel-perfect unchanged.">
               <span class="template-icon">❄</span><span class="template-label">Add Snow</span>
             </button>
-            <button class="template-btn" data-prompt="Change the background to a beautiful ocean sunset with warm pink and orange sky colors">
+            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to a beautiful ocean sunset with warm pink and orange sky colors and gentle water reflections. The subject must remain pixel-perfect unchanged.">
               <span class="template-icon">🌅</span><span class="template-label">Sunset BG</span>
             </button>
-            <button class="template-btn" data-prompt="Change the background to outer space with stars, nebula, and cosmic dust particles">
+            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to outer space with stars, colorful nebula, and cosmic dust particles. The subject must remain pixel-perfect unchanged.">
               <span class="template-icon">🌌</span><span class="template-label">Space BG</span>
             </button>
-            <button class="template-btn" data-prompt="Change the background to a vast golden desert landscape with sand dunes and heat haze">
+            <button class="template-btn" data-prompt="CRITICAL: Keep the person's face, body position, pose, and expression EXACTLY identical. Do NOT alter the subject in any way. Only change the background to a vast golden desert landscape with sand dunes and heat haze. The subject must remain pixel-perfect unchanged.">
               <span class="template-icon">🏜</span><span class="template-label">Desert BG</span>
             </button>
           </div>
@@ -279,8 +279,14 @@
         </div>
         <div class="settings-group">
           <div class="form-group">
-            <label class="form-label">Kling API Key</label>
-            <input type="password" class="form-input" id="settingsKlingKey" placeholder="Bearer token...">
+            <label class="form-label">Kling Access Key</label>
+            <input type="password" class="form-input" id="settingsKlingAK" placeholder="AK...">
+          </div>
+        </div>
+        <div class="settings-group">
+          <div class="form-group">
+            <label class="form-label">Kling Secret Key</label>
+            <input type="password" class="form-input" id="settingsKlingSK" placeholder="SK...">
           </div>
         </div>
         <button class="btn-save-settings" id="btnSaveSettings">Save Settings</button>

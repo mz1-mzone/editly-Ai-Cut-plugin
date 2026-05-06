@@ -664,6 +664,10 @@ function getSelectedClipMediaPath() {
     var outPoint = clip.outPoint ? clip.outPoint.seconds : 0;
     var duration = endTime - startTime;
 
+    // Get sequence frame size for aspect ratio matching
+    var frameWidth = seq.frameSizeHorizontal || 1920;
+    var frameHeight = seq.frameSizeVertical || 1080;
+
     return JSON.stringify({
       success: true,
       mediaPath: mediaPath,
@@ -672,7 +676,9 @@ function getSelectedClipMediaPath() {
       endTime: endTime,
       inPoint: inPoint,
       outPoint: outPoint,
-      duration: duration
+      duration: duration,
+      frameWidth: frameWidth,
+      frameHeight: frameHeight
     });
   } catch (e) {
     return JSON.stringify({ error: 'getSelectedClipMediaPath failed: ' + e.message });
