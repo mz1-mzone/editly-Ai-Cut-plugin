@@ -197,9 +197,12 @@ var KlingVideo = (function () {
           model_name: 'kling-v2-6',
           image_url: urls.imageUrl,
           video_url: urls.videoUrl,
-          character_orientation: 'video',
+          character_orientation: 'image',
+          mode: 'pro',
           prompt: opts.prompt || '',
-          keep_original_sound: 'yes'
+          keep_original_sound: 'yes',
+          callback_url: '',
+          external_task_id: ''
         };
 
         console.log('[Kling] Submitting motion-control task');
@@ -209,7 +212,7 @@ var KlingVideo = (function () {
         return new Promise(function (resolve, reject) {
           var xhr = new XMLHttpRequest();
           xhr.open('POST', API_BASE + '/videos/motion-control', true);
-          xhr.setRequestHeader('Content-Type', 'application/json');
+          xhr.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
           xhr.setRequestHeader('Authorization', 'Bearer ' + token);
           xhr.timeout = 60000;
 
