@@ -27,7 +27,8 @@
     gemini_api_key: '',
     kling_access_key: '',
     kling_secret_key: '',
-    seedance_api_key: ''
+    seedance_api_key: '',
+    beeble_api_key: ''
   };
 
   // VFX state
@@ -85,6 +86,7 @@
     vfxFileInput: document.getElementById('vfxFileInput'),
     vfxUploadThumbs: document.getElementById('vfxUploadThumbs'),
     settingsSeedanceKey: document.getElementById('settingsSeedanceKey'),
+    settingsBeebleKey: document.getElementById('settingsBeebleKey'),
     // VFX Preview
     vfxPageSetup: document.getElementById('vfxPageSetup'),
     vfxPagePreview: document.getElementById('vfxPagePreview'),
@@ -165,6 +167,7 @@
         settings.kling_access_key = loaded.kling_access_key || '';
         settings.kling_secret_key = loaded.kling_secret_key || '';
         settings.seedance_api_key = loaded.seedance_api_key || '';
+        settings.beeble_api_key = loaded.beeble_api_key || '';
       }
     } catch (e) {
       console.warn('Could not load settings:', e.message);
@@ -178,6 +181,7 @@
     if (els.settingsKlingAK) els.settingsKlingAK.value = settings.kling_access_key;
     if (els.settingsKlingSK) els.settingsKlingSK.value = settings.kling_secret_key;
     if (els.settingsSeedanceKey) els.settingsSeedanceKey.value = settings.seedance_api_key;
+    if (els.settingsBeebleKey) els.settingsBeebleKey.value = settings.beeble_api_key;
 
     updateConnectionStatus();
     initApiClients();
@@ -191,6 +195,7 @@
     if (els.settingsKlingAK) settings.kling_access_key = els.settingsKlingAK.value.trim();
     if (els.settingsKlingSK) settings.kling_secret_key = els.settingsKlingSK.value.trim();
     if (els.settingsSeedanceKey) settings.seedance_api_key = els.settingsSeedanceKey.value.trim();
+    if (els.settingsBeebleKey) settings.beeble_api_key = els.settingsBeebleKey.value.trim();
 
     try {
       var extPath = csInterface.getSystemPath(SystemPath.EXTENSION);
@@ -961,13 +966,23 @@
         showToast('Configure Seedance API Key in Settings', 'error');
         return;
       }
+    } else if (selectedModel === 'beeble') {
+      if (!settings.beeble_api_key) {
+        showToast('Configure Beeble API Key in Settings', 'error');
+        return;
+      }
     }
 
-    // Calculate splits based on model's max chunk duration
-    var maxChunk = selectedModel === 'seedance-2' ? 15 : 30;
-    var splits = selectedModel === 'seedance-2'
-      ? SeedanceVideo.calculateSplits(dur, maxChunk)
-      : KlingVideo.calculateSplits(dur, maxChunk);
+    // Calculate splits based on model
+    var splits;
+    if (selectedModel === 'beeble') {
+      // Beeble: no duration limit — 1 task for the full clip
+      splits = [{ start: 0, end: dur, duration: dur, index: 0 }];
+    } else if (selectedModel === 'seedance-2') {
+      splits = SeedanceVideo.calculateSplits(dur, 15);
+    } else {
+      splits = KlingVideo.calculateSplits(dur, 30);
+    }
 
     // Calculate ratio from sequence dimensions
     var fw = vfxClipData.frameWidth || 1920;
@@ -988,22 +1003,20 @@
         clipName: vfxClipData.clipName,
         chunkIndex: i,
         totalChunks: splits.length,
-        // Timeline position (where to place the generated clip on the sequence)
         timelineStart: vfxClipData.startTime + splits[i].start,
-        // Source media seek time (where to extract from in the source file)
         startTime: vfxClipData.inPoint + splits[i].start,
         endTime: vfxClipData.inPoint + splits[i].end,
         duration: splits[i].duration,
         prompt: prompt,
         imageBase64: vfxPreviewData.imageBase64,
         mediaPath: vfxClipData.mediaPath,
-        // Model-specific
         model: selectedModel,
         ratio: ratio,
         extraImagePaths: extraImagePaths,
         klingAccessKey: settings.kling_access_key,
         klingSecretKey: settings.kling_secret_key,
-        seedanceApiKey: settings.seedance_api_key
+        seedanceApiKey: settings.seedance_api_key,
+        beebleApiKey: settings.beeble_api_key
       });
     }
 

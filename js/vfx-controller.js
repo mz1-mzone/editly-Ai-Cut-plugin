@@ -144,6 +144,7 @@ var VFXController = (function () {
       klingAccessKey: opts.klingAccessKey,
       klingSecretKey: opts.klingSecretKey,
       seedanceApiKey: opts.seedanceApiKey,
+      beebleApiKey: opts.beebleApiKey,
       status: 'queued',
       progress: 0,
       taskId: null,
@@ -167,7 +168,8 @@ var VFXController = (function () {
     }
 
     var isSeedance = task.model === 'seedance-2';
-    var modelLabel = isSeedance ? 'Seedance' : 'Kling';
+    var isBeeble = task.model === 'beeble';
+    var modelLabel = isBeeble ? 'Beeble' : (isSeedance ? 'Seedance' : 'Kling');
 
     // Step 0: Get project folder
     updateTask({ status: 'extracting', progress: 5 });
@@ -193,7 +195,19 @@ var VFXController = (function () {
             // Step 2: Submit to API
             updateTask({ status: 'submitting', progress: 15 });
 
-            if (isSeedance) {
+            if (isBeeble) {
+              // ---------- BEEBLE SWITCHX ----------
+              return BeebleVideo.submitTask({
+                apiKey: task.beebleApiKey,
+                prompt: task.prompt,
+                referenceImageBase64: task.imageBase64,
+                videoFilePath: chunkPath,
+                onProgress: function (p) {
+                  updateTask({ progress: Math.min(25, task.progress + 2) });
+                  if (p.detail) console.log('[VFX][Beeble] ' + p.detail);
+                }
+              });
+            } else if (isSeedance) {
               // ---------- SEEDANCE 2.0 ----------
               return SeedanceVideo.submitTask({
                 apiKey: task.seedanceApiKey,
@@ -232,7 +246,12 @@ var VFXController = (function () {
             // Step 3: Poll until done
             updateTask({ status: 'processing', progress: 30 });
 
-            if (isSeedance) {
+            if (isBeeble) {
+              return BeebleVideo.pollTask(task.beebleApiKey, submitResult.taskId, function (pollData) {
+                var pct = 30 + Math.round((pollData.progress || 0) * 0.5);
+                updateTask({ progress: Math.min(pct, 80) });
+              });
+            } else if (isSeedance) {
               return SeedanceVideo.pollTask(task.seedanceApiKey, submitResult.taskId, function (pollData) {
                 var pct = 30 + Math.round((pollData.progress || 0) * 0.5);
                 updateTask({ progress: Math.min(pct, 80) });
@@ -252,7 +271,7 @@ var VFXController = (function () {
             updateTask({ status: 'downloading', progress: 85 });
             var safeName = (task.clipName || 'clip').replace(/[^a-zA-Z0-9_-]/g, '_');
             var timestamp = Date.now().toString(36);
-            var prefix = isSeedance ? 'SD_' : 'VFX_';
+            var prefix = isBeeble ? 'BX_' : (isSeedance ? 'SD_' : 'VFX_');
             var videoPath = outputDir + '/' + prefix + safeName + '_' + (task.chunkIndex + 1) + '_' + timestamp + '.mp4';
             task.videoPath = videoPath;
 

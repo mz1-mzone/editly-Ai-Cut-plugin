@@ -162,6 +162,7 @@
             <select class="form-select" id="vfxModelSelect">
               <option value="kling-v3">Kling 3.0 Motion Control</option>
               <option value="seedance-2">Seedance 2.0</option>
+              <option value="beeble">Beeble SwitchX (faces)</option>
             </select>
           </div>
           <div class="vfx-image-upload" id="vfxImageUpload" style="display:none;">
@@ -292,6 +293,12 @@
             <input type="password" class="form-input" id="settingsSeedanceKey" placeholder="ark-...">
           </div>
         </div>
+        <div class="settings-group">
+          <div class="form-group">
+            <label class="form-label">Beeble API Key</label>
+            <input type="password" class="form-input" id="settingsBeebleKey" placeholder="bbl_sk_...">
+          </div>
+        </div>
         <button class="btn-save-settings" id="btnSaveSettings">Save Settings</button>
       </div>
     </div>
@@ -310,6 +317,7 @@
   <script src="js/api/gemini-image.js"></script>
   <script src="js/api/kling-video.js"></script>
   <script src="js/api/seedance-video.js"></script>
+  <script src="js/api/beeble-video.js"></script>
   <script src="js/vfx-controller.js"></script>
   <!-- Auto-updater -->
   <script src="js/updater.js"></script>
