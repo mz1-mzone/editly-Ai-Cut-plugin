@@ -230,6 +230,7 @@ var SeedanceVideo = (function () {
           content: content,
           duration: duration,
           ratio: ratio,
+          resolution: '1080p',
           generate_audio: opts.generateAudio || false,
           watermark: false
         };

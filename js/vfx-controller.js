@@ -129,6 +129,8 @@ var VFXController = (function () {
     // Store the full base64 for the actual API call, but also a usable thumbnail
     if (opts.imageBase64) {
       thumbDataUri = 'data:image/png;base64,' + opts.imageBase64;
+    } else if (opts.thumbOverride) {
+      thumbDataUri = opts.thumbOverride;
     }
 
     var task = {

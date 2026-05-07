@@ -1069,7 +1069,18 @@
         if (vfxUploadedImages[j].path) extraImagePaths.push(vfxUploadedImages[j].path);
       }
 
-      var clipName = (vfxClipData && vfxClipData.clipName) ? vfxClipData.clipName : 'Seedance_Direct';
+      // Use beginning of prompt as clip name (max 30 chars)
+      var clipName = prompt.length > 30 ? prompt.substring(0, 30) + '…' : prompt;
+
+      // Seedance logo SVG for queue thumbnail (no preview image in direct mode)
+      var seedanceThumbSvg = 'data:image/svg+xml,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80">' +
+        '<rect width="80" height="80" rx="12" fill="#1a1a2e"/>' +
+        '<text x="40" y="32" text-anchor="middle" fill="#9d5cff" font-size="24" font-family="sans-serif">⚡</text>' +
+        '<text x="40" y="52" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold" font-family="sans-serif">SEEDANCE</text>' +
+        '<text x="40" y="64" text-anchor="middle" fill="#9d5cff" font-size="8" font-family="sans-serif">2.0</text>' +
+        '</svg>'
+      );
 
       // Create task — 1 × 15s, no clip extraction
       VFXController.createTask({
@@ -1082,6 +1093,7 @@
         duration: dur,
         prompt: prompt,
         imageBase64: null,
+        thumbOverride: seedanceThumbSvg,
         mediaPath: null,
         model: 'seedance-2',
         ratio: ratio,
