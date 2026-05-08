@@ -121,47 +121,48 @@ cat > "$BUILD_DIR/distribution.xml" << DISTXML
 </installer-gui-script>
 DISTXML
 
-# Create welcome HTML
+# Create welcome HTML (ASCII only — macOS installer has poor Unicode support)
 cat > "$BUILD_DIR/welcome.html" << 'WELCOME'
 <!DOCTYPE html>
 <html>
-<head><style>
+<head><meta charset="ASCII"><style>
 body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; color: #333; }
-h1 { color: #9d5cff; font-size: 24px; }
-.feature { margin: 8px 0; padding: 4px 0; }
-.badge { display: inline-block; background: #f0e6ff; color: #7c3aed; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-right: 4px; }
+h1 { color: #9d5cff; font-size: 22px; margin-bottom: 4px; }
+h2 { color: #666; font-size: 14px; font-weight: normal; margin-top: 0; }
+.feature { margin: 6px 0; padding: 6px 10px; background: #f8f8ff; border-radius: 4px; font-size: 13px; }
+.label { font-weight: 600; color: #7c3aed; }
 </style></head>
 <body>
-<h1>✨ Editly AI Editor</h1>
-<p><strong>AI-Powered Story Editor & VFX Studio for Adobe Premiere Pro</strong></p>
-<div class="feature"><span class="badge">AI</span> Claude AI story editing with auto filler detection</div>
-<div class="feature"><span class="badge">VFX</span> Kling 3.0 · Seedance 2.0 · Beeble SwitchX</div>
-<div class="feature"><span class="badge">IMG</span> Gemini AI image generation</div>
-<div class="feature"><span class="badge">🌍</span> Arabic language support</div>
-<p style="margin-top: 16px; color: #666; font-size: 13px;">
-<strong>Requirements:</strong> Premiere Pro 2022+, ffmpeg (<code>brew install ffmpeg</code>)
+<h1>Editly AI Editor</h1>
+<h2>AI-Powered Story Editor and VFX Studio for Adobe Premiere Pro</h2>
+<div class="feature"><span class="label">AI Editing:</span> Claude AI story editing with auto filler detection</div>
+<div class="feature"><span class="label">VFX Studio:</span> Kling 3.0, Seedance 2.0, Beeble SwitchX</div>
+<div class="feature"><span class="label">Image Gen:</span> Gemini AI image generation</div>
+<div class="feature"><span class="label">Languages:</span> English and Arabic support</div>
+<p style="margin-top: 14px; color: #888; font-size: 12px;">
+Requires: Premiere Pro 2022 or later, ffmpeg
 </p>
 </body>
 </html>
 WELCOME
 
-# Create conclusion HTML
+# Create conclusion HTML (ASCII only)
 cat > "$BUILD_DIR/conclusion.html" << 'CONCLUSION'
 <!DOCTYPE html>
 <html>
-<head><style>
+<head><meta charset="ASCII"><style>
 body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; color: #333; }
-h1 { color: #22c55e; font-size: 24px; }
-.step { margin: 10px 0; padding: 8px 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #9d5cff; }
-code { background: #e8e8e8; padding: 1px 6px; border-radius: 3px; font-size: 13px; }
+h1 { color: #22c55e; font-size: 22px; }
+.step { margin: 8px 0; padding: 8px 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #9d5cff; font-size: 13px; }
+code { background: #e8e8e8; padding: 1px 6px; border-radius: 3px; font-size: 12px; }
 </style></head>
 <body>
-<h1>✅ Installation Complete!</h1>
+<h1>Installation Complete</h1>
 <div class="step"><strong>Step 1:</strong> Restart Adobe Premiere Pro</div>
-<div class="step"><strong>Step 2:</strong> Go to <code>Window → Extensions → Editly AI Editor</code></div>
-<div class="step"><strong>Step 3:</strong> Click ⚙ Settings and enter your API keys</div>
-<p style="margin-top: 16px; color: #666; font-size: 13px;">
-<strong>ffmpeg required:</strong> If not installed, run <code>brew install ffmpeg</code> in Terminal.
+<div class="step"><strong>Step 2:</strong> Go to Window > Extensions > Editly AI Editor</div>
+<div class="step"><strong>Step 3:</strong> Click Settings and enter your API keys</div>
+<p style="margin-top: 14px; color: #888; font-size: 12px;">
+ffmpeg required: If not installed, run <code>brew install ffmpeg</code> in Terminal.
 </p>
 </body>
 </html>
